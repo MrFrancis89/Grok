@@ -715,7 +715,12 @@ async function _fetchOneRound(messages, onChunk, onRetry) {
         });
     } catch (e) {
         if (e.name === 'AbortError') return { aborted: true };
-        throw new Error('Sem conexão. Verifique a internet.');
+        // TypeError de rede pode ser: sem internet OU bloqueio CSP/CORS.
+        // Distinguir pelo tipo de erro para mensagem mais útil.
+        const msg = e instanceof TypeError
+            ? 'Erro de conexão com a API Groq. Verifique: internet ativa, chave válida e HTTPS no servidor.'
+            : `Erro inesperado: ${e.message}`;
+        throw new Error(msg);
     }
 
     if (!res.ok) {
