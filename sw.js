@@ -42,7 +42,16 @@
 // v9.8.2: bypass gstatic.com para SDK Firebase não bloquear modo offline.
 // v10.1.0: gemini.js e gemini.css adicionados ao cache.
 // v10.3.1: BUG #8 — bypass completo do fluxo OAuth Google (auth/internal-error).
-const VERSION    = '10.3.1';
+// v10.3.2: BUG #9 — bypass explícito de /__/auth/* (loop pós-redirect Google).
+//   PROBLEMA : Após selecionar conta Google, o browser retorna para a URL
+//              /__/auth/handler com o código OAuth. O SW interceptava essa
+//              navegação same-origin, não encontrava no cache e devolvia
+//              index.html como fallback. O SDK recebia HTML, getRedirectResult()
+//              retornava null e a tela de login reaparecia em loop.
+//   CORREÇÃO : URLs contendo /__/auth/ são devolvidas ao browser sem
+//              nenhuma interceptação (sem e.respondWith()), permitindo que
+//              o Firebase processe o token OAuth normalmente.
+const VERSION    = '10.3.2';
 const CACHE_NAME = 'stockflow-v' + VERSION.replace(/\./g, '-');
 
 const ASSETS = [
@@ -145,6 +154,15 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
     if (e.request.method !== 'GET') return;
+
+    const url = e.request.url;
+
+    // BUG FIX #9: /__/auth/* é a rota de callback OAuth do Firebase.
+    // O browser navega para ela após o usuário selecionar a conta Google.
+    // Se o SW interceptar e devolver index.html, o getRedirectResult() falha
+    // e a tela de login reaparece em loop. Solução: não chamar e.respondWith()
+    // para essas URLs — o browser as trata diretamente.
+    if (url.includes('/__/auth/')) return;
 
     // ── Bypass: todas as requisições externas do fluxo Firebase/OAuth ──
     // Qualquer domínio fora da origem do app deve ser tratado pelo browser
