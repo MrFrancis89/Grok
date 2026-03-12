@@ -10,13 +10,13 @@
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
                    script-src 'self' https://www.gstatic.com/firebasejs/ https://cdn.firebase.google.com/;
-                   connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com https://api.groq.com;
+                   connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com https://api.groq.com https://securetoken.googleapis.com https://accounts.google.com;
                    style-src 'self' 'unsafe-inline';
-                   img-src 'self' data: blob: https://*.googleusercontent.com;
+                   img-src 'self' data: blob: https://*.googleusercontent.com https://lh3.googleusercontent.com;
                    font-src 'self';
                    object-src 'none';
                    base-uri 'self';
-                   frame-src 'self';">
+                   frame-src 'self' https://accounts.google.com https://stockflow-pro-274d7.firebaseapp.com;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <title>StockFlow Pro v10.0.0</title>
     <meta name="theme-color" content="#000000">
