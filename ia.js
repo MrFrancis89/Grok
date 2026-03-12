@@ -6,6 +6,14 @@ import { coletarDadosDaTabela }      from './tabela.js';
 import { renderizarListaCompleta }   from './ui.js';
 import { atualizarDropdown }         from './dropdown.js';
 import { atualizarPainelCompras }    from './compras.js';
+import {
+    iaAdicionarItemLF,
+    iaRemoverItemLF,
+    iaDefinirOrcamentoLF,
+    iaAdicionarVariosItensLF,
+    iaObterItensLF,
+    iaObterOrcamentoLF,
+} from './listafacil.js';
 
 // ── Constantes ────────────────────────────────────────────────────
 const LS_KEY          = 'stockflow_groq_key';
@@ -97,6 +105,125 @@ const TOOLS = [
             },
         },
     },
+
+    // ── NOVAS: Lista de Compras ───────────────────────────────────
+    {
+        type: 'function',
+        function: {
+            name: 'adicionar_item_lista',
+            description: 'Adiciona um item à Lista Fácil (lista de compras). Use quando o usuário quiser comprar algo que ainda não está no estoque ou precisar registrar um item na lista.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    nome:       { type: 'string',  description: 'Nome do produto a comprar' },
+                    quantidade: { type: 'number',  description: 'Quantidade desejada. Padrão: 1.' },
+                    preco:      { type: 'number',  description: 'Preço unitário estimado em R$. Padrão: 0.' },
+                },
+                required: ['nome'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'remover_item_lista',
+            description: 'Remove um item da Lista Fácil (lista de compras).',
+            parameters: {
+                type: 'object',
+                properties: {
+                    nome: { type: 'string', description: 'Nome ou parte do nome do item a remover da lista' },
+                },
+                required: ['nome'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'definir_orcamento_lista',
+            description: 'Define o orçamento total da Lista Fácil em reais.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    valor: { type: 'number', description: 'Valor do orçamento em R$ (ex: 500)' },
+                },
+                required: ['valor'],
+            },
+        },
+    },
+
+    // ── NOVA: Transferir Estoque → Lista ─────────────────────────
+    {
+        type: 'function',
+        function: {
+            name: 'transferir_marcados_para_lista',
+            description: 'Transfere todos os itens marcados para compra (checkbox ativo) do estoque para a Lista Fácil automaticamente. Use quando o usuário pedir para "mover os marcados para a lista" ou "preparar a lista de compras com o que falta".',
+            parameters: {
+                type: 'object',
+                properties: {
+                    incluir_nao_marcados: {
+                        type: 'boolean',
+                        description: 'Se true, inclui TODOS os itens do estoque, não só os marcados. Padrão: false.',
+                    },
+                },
+                required: [],
+            },
+        },
+    },
+
+    // ── NOVA: Calcular Produção ───────────────────────────────────
+    {
+        type: 'function',
+        function: {
+            name: 'calcular_producao',
+            description: 'Calcula quantas bolas de massa uma receita rende e lista os insumos necessários. Use quando o usuário informar quantos kg de farinha vai usar ou quantas pizzas quer produzir.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    receita_nome: {
+                        type: 'string',
+                        description: 'Nome ou parte do nome da receita de massa. Se omitido, usa a primeira disponível.',
+                    },
+                    trigo_kg: {
+                        type: 'number',
+                        description: 'Quantidade de farinha de trigo em kg. Obrigatório se pizzas não for informado.',
+                    },
+                    pizzas: {
+                        type: 'number',
+                        description: 'Quantidade de pizzas/bolas desejada. A IA calcula o trigo necessário automaticamente.',
+                    },
+                    peso_bola_g: {
+                        type: 'number',
+                        description: 'Peso de cada bola de massa em gramas. Padrão: 250 g.',
+                    },
+                },
+                required: [],
+            },
+        },
+    },
+
+    // ── NOVA: Analisar Margens ────────────────────────────────────
+    {
+        type: 'function',
+        function: {
+            name: 'analisar_margens',
+            description: 'Analisa a lucratividade das receitas da Ficha Técnica: custo, preço sugerido por markup, margem real e ranking de rentabilidade. Não requer parâmetros.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    markup_pct: {
+                        type: 'number',
+                        description: 'Markup percentual para calcular preço sugerido (ex: 200 = 200%). Se omitido, usa a configuração salva do Simulador.',
+                    },
+                    porcoes: {
+                        type: 'number',
+                        description: 'Número de porções/fatias para calcular custo por fatia. Se omitido, usa a configuração salva.',
+                    },
+                },
+                required: [],
+            },
+        },
+    },
 ];
 
 // ── Estado privado ────────────────────────────────────────────────
@@ -172,6 +299,35 @@ function _stockCtx() {
     } catch { return 'Estoque indisponível.'; }
 }
 
+// ── Contexto: Lista de Compras ────────────────────────────────────
+function _listaCtx() {
+    try {
+        const itens = iaObterItensLF();
+        const orc   = iaObterOrcamentoLF();
+        if (!itens.length) return '\nLISTA DE COMPRAS: vazia.';
+        const total = itens.reduce((s, it) => s + (Number(it.q) || 0) * (Number(it.p) || 0), 0);
+        const linhas = itens.map(it => {
+            const sub = (Number(it.q) || 0) * (Number(it.p) || 0);
+            return `• ${it.n}: ${it.q}x${it.p ? ` R$${Number(it.p).toFixed(2)} = R$${sub.toFixed(2)}` : ''}`;
+        }).join('\n');
+        const saldo = orc - total;
+        return `\nLISTA DE COMPRAS (${itens.length} item(s)):\n${linhas}\nTotal: R$${total.toFixed(2)} | Orçamento: R$${orc.toFixed(2)} | Saldo: R$${saldo.toFixed(2)}${saldo < 0 ? ' 🔴 ESTOURADO' : ''}`;
+    } catch { return ''; }
+}
+
+// ── Contexto: Produção (receitas disponíveis) ─────────────────────
+function _producaoCtx() {
+    try {
+        const raw = localStorage.getItem('massaMasterReceitas_v1');
+        if (!raw) return '';
+        const estado  = JSON.parse(raw);
+        const receitas = Array.isArray(estado) ? estado : (estado?.receitas || []);
+        if (!receitas.length) return '';
+        const nomes = receitas.map(r => `"${r.nome}"`).join(', ');
+        return `\nRECEITAS DE MASSA (Produção): ${nomes}. Use calcular_producao para simular quantidades.`;
+    } catch { return ''; }
+}
+
 // ── Contexto: Ficha Técnica ───────────────────────────────────────
 function _ftCtx() {
     try {
@@ -202,10 +358,16 @@ function _sysPrompt() {
 
 ESTOQUE ATUAL:
 ${_stockCtx()}
+${_listaCtx()}
+${_producaoCtx()}
 ${_ftCtx()}
 
 CAPACIDADES (use as ferramentas quando o usuário pedir ações concretas):
-- adicionar_item_estoque, atualizar_quantidade, marcar_itens_compra, definir_alerta, remover_item_estoque
+Estoque: adicionar_item_estoque, atualizar_quantidade, marcar_itens_compra, definir_alerta, remover_item_estoque
+Lista de Compras: adicionar_item_lista, remover_item_lista, definir_orcamento_lista
+Automação: transferir_marcados_para_lista
+Produção: calcular_producao
+Análise: analisar_margens
 
 INSTRUÇÕES:
 - Responda em português brasileiro, direto e objetivo
@@ -221,13 +383,21 @@ function _suggestions() {
     try {
         const dados    = _getDados();
         const baixos   = dados.filter(d => d.min != null && d.q != null && parseFloat(d.q) < parseFloat(d.min));
-        const marcados = dados.filter(d => d.c).length;
+        const marcados = dados.filter(d => d.c);
         const semAlerta = dados.filter(d => d.min == null && d.max == null).length;
-        if (baixos.length) extra.push({ e: '🔴', t: `Marcar ${baixos.slice(0,2).map(d=>d.n).join(' e ')} para compra` });
-        if (marcados > 0)  extra.push({ e: '🛒', t: `Gerar lista dos ${marcados} itens marcados` });
-        if (semAlerta > 3) extra.push({ e: '🔔', t: 'Sugerir alertas para meu estoque' });
+        if (baixos.length)    extra.push({ e: '🔴', t: `Marcar ${baixos.slice(0,2).map(d=>d.n).join(' e ')} para compra` });
+        if (marcados.length)  extra.push({ e: '🔁', t: `Transferir ${marcados.length} marcado(s) para a lista de compras` });
+        if (semAlerta > 3)    extra.push({ e: '🔔', t: 'Sugerir alertas para meu estoque' });
         const recs = Object.values(JSON.parse(localStorage.getItem('ft_receitas') || '{}')).filter(r => r.ativo !== false);
-        if (recs.length)   extra.push({ e: '📈', t: 'Analisar margens das minhas receitas' });
+        if (recs.length)      extra.push({ e: '📊', t: 'Analisar margens das minhas receitas' });
+        const rawProd = localStorage.getItem('massaMasterReceitas_v1');
+        if (rawProd) {
+            const estado = JSON.parse(rawProd);
+            const receitas = Array.isArray(estado) ? estado : (estado?.receitas || []);
+            if (receitas.length) extra.push({ e: '⚖️', t: `Calcular produção: ${receitas[0].nome}` });
+        }
+        const listaItens = iaObterItensLF();
+        if (listaItens.length) extra.push({ e: '🛒', t: `Ver resumo da lista (${listaItens.length} item(s))` });
     } catch { /* */ }
     const base = [
         { e: '📊', t: 'Briefing: itens críticos e o que comprar hoje' },
@@ -308,22 +478,206 @@ function _toolRemoverItem({ nome }) {
     _rerender(dados);
     return { ok: true, msg: `"${removido}" removido.` };
 }
+
+// ── Ferramentas: Lista de Compras ─────────────────────────────────
+function _toolAdicionarItemLista({ nome, quantidade = 1, preco = 0 }) {
+    return iaAdicionarItemLF(nome, quantidade, preco);
+}
+
+function _toolRemoverItemLista({ nome }) {
+    return iaRemoverItemLF(nome);
+}
+
+function _toolDefinirOrcamentoLista({ valor }) {
+    return iaDefinirOrcamentoLF(valor);
+}
+
+// ── Ferramenta: Transferir Estoque → Lista ────────────────────────
+function _toolTransferirMarcadosParaLista({ incluir_nao_marcados = false }) {
+    const dados = _getDados();
+    const fonte = incluir_nao_marcados ? dados : dados.filter(d => d.c);
+    if (!fonte.length) {
+        return { ok: false, erro: incluir_nao_marcados
+            ? 'Estoque vazio.'
+            : 'Nenhum item marcado para compra no estoque. Marque itens antes de transferir.' };
+    }
+    const itensParaLista = fonte.map(d => ({
+        nome:       d.n,
+        quantidade: parseFloat(d.q) || 1,
+        preco:      0,
+    }));
+    return iaAdicionarVariosItensLF(itensParaLista);
+}
+
+// ── Ferramenta: Calcular Produção ─────────────────────────────────
+function _normParaGramas(valor, unidade) {
+    const v = parseFloat(valor) || 0;
+    const u = (unidade || '').toLowerCase().trim();
+    if (u === 'kg') return v * 1000;
+    if (u === 'l')  return v * 1000;
+    return v;
+}
+
+function _toolCalcularProducao({ receita_nome, trigo_kg, pizzas, peso_bola_g = 250 }) {
+    try {
+        const raw = localStorage.getItem('massaMasterReceitas_v1');
+        if (!raw) return { ok: false, erro: 'Nenhuma receita de massa cadastrada na aba Produção.' };
+
+        const estado   = JSON.parse(raw);
+        const receitas = Array.isArray(estado) ? estado : (estado?.receitas || []);
+        if (!receitas.length) return { ok: false, erro: 'Nenhuma receita de massa encontrada.' };
+
+        // Encontrar receita
+        let receita = receitas[0];
+        if (receita_nome) {
+            const q = receita_nome.toLowerCase().trim();
+            const found = receitas.find(r =>
+                r.nome.toLowerCase().includes(q) || q.includes(r.nome.toLowerCase())
+            );
+            if (found) receita = found;
+        }
+
+        const pesoBola = Number(peso_bola_g) || 250;
+
+        // Se usuário informou quantidade de pizzas, calcular trigo necessário
+        let trigoKg = Number(trigo_kg) || 0;
+        if (!trigoKg && pizzas) {
+            // Calcular massa por bola = (1000 + soma_ingredientes_por_kg_trigo) g por kg de trigo
+            const somaIngG = (receita.ingredientes || [])
+                .reduce((acc, ing) => acc + _normParaGramas(parseFloat(ing.valor) || 0, ing.unidade), 0);
+            const massaPorKgTrigo = 1000 + somaIngG; // gramas de massa por 1 kg de trigo
+            // bolas por kg trigo = massaPorKgTrigo / pesoBola
+            const bolasPorKg = massaPorKgTrigo / pesoBola;
+            trigoKg = Math.ceil((Number(pizzas) / bolasPorKg) * 100) / 100;
+        }
+
+        if (!trigoKg || trigoKg <= 0)
+            return { ok: false, erro: 'Informe a quantidade de farinha (trigo_kg) ou o número de pizzas desejado.' };
+
+        // Calcular massa total
+        const somaIngG = (receita.ingredientes || [])
+            .reduce((acc, ing) => acc + _normParaGramas(parseFloat(ing.valor) || 0, ing.unidade), 0);
+        const massaTotalG = trigoKg * (1000 + somaIngG);
+        const bolas       = Math.floor(massaTotalG / pesoBola);
+
+        // Montar lista de insumos
+        const insumos = [{ nome: 'Farinha de Trigo', quantidade: `${trigoKg} kg` }];
+        for (const ing of (receita.ingredientes || [])) {
+            const totalG = trigoKg * _normParaGramas(parseFloat(ing.valor) || 0, ing.unidade);
+            const u = (ing.unidade || '').toLowerCase();
+            let display;
+            if ((u === 'g' || u === 'kg') && totalG >= 1000) {
+                display = `${(totalG / 1000).toFixed(2).replace('.', ',')} kg`;
+            } else if ((u === 'ml' || u === 'l') && totalG >= 1000) {
+                display = `${(totalG / 1000).toFixed(2).replace('.', ',')} l`;
+            } else {
+                display = `${totalG.toFixed(0)} ${u === 'kg' ? 'g' : u === 'l' ? 'ml' : ing.unidade || 'g'}`;
+            }
+            insumos.push({ nome: ing.nome, quantidade: display });
+        }
+
+        const resumoInsumos = insumos.map(i => `• ${i.nome}: ${i.quantidade}`).join('\n');
+        return {
+            ok:      true,
+            receita: receita.nome,
+            trigo_kg:      trigoKg,
+            massa_total_kg: (massaTotalG / 1000).toFixed(2),
+            bolas,
+            peso_bola_g:   pesoBola,
+            msg: `Receita: ${receita.nome}\nFarinha: ${trigoKg} kg → ${bolas} bolas de ${pesoBola}g (${(massaTotalG/1000).toFixed(2)} kg de massa)\n\nINSUMOS:\n${resumoInsumos}`,
+        };
+    } catch (e) {
+        return { ok: false, erro: `Erro ao calcular produção: ${e.message}` };
+    }
+}
+
+// ── Ferramenta: Analisar Margens ──────────────────────────────────
+function _toolAnalisarMargens({ markup_pct, porcoes }) {
+    try {
+        const recs = Object.values(JSON.parse(localStorage.getItem('ft_receitas') || '{}'))
+            .filter(r => r.ativo !== false && r.custo_total > 0);
+        if (!recs.length) return { ok: false, erro: 'Nenhuma receita ativa com custo definido na Ficha Técnica.' };
+
+        // Tentar carregar config do simulador
+        let cfgMarkup = markup_pct || 200;
+        let cfgPorcoes = porcoes || 0;
+        try {
+            const cfg = JSON.parse(localStorage.getItem('ft_config') || 'null');
+            if (cfg) {
+                if (!markup_pct)  cfgMarkup  = cfg.markup_padrao    ?? 200;
+                if (!porcoes)     cfgPorcoes  = cfg.porcoes_padrao   ?? 0;
+            }
+        } catch { /* usa defaults */ }
+
+        const calcPreco  = (custo, mk) => custo * (1 + mk / 100);
+        const calcMargem = (preco, custo) => preco > 0 ? ((preco - custo) / preco) * 100 : 0;
+
+        // Ordenar por margem real (maior primeiro)
+        const analise = recs.map(r => {
+            const custo  = Number(r.custo_total) || 0;
+            const preco  = calcPreco(custo, cfgMarkup);
+            const margem = calcMargem(preco, custo);
+            const lucro  = preco - custo;
+            const custoPorcao = cfgPorcoes > 0 ? custo / cfgPorcoes : null;
+            return { nome: r.nome || 'Sem nome', tamanho: r.tamanho || '', custo, preco, margem, lucro, custoPorcao };
+        }).sort((a, b) => b.margem - a.margem);
+
+        const linhas = analise.map((r, i) => {
+            const emoji  = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+            const tag    = r.tamanho ? ` (${r.tamanho})` : '';
+            const porcao = r.custoPorcao != null ? ` | R$${r.custoPorcao.toFixed(2)}/fatia` : '';
+            return `${emoji} ${r.nome}${tag}: custo R$${r.custo.toFixed(2)} → preço R$${r.preco.toFixed(2)} | margem ${r.margem.toFixed(1)}% | lucro R$${r.lucro.toFixed(2)}${porcao}`;
+        });
+
+        const melhor = analise[0];
+        const pior   = analise[analise.length - 1];
+        const diffMargem = melhor.margem - pior.margem;
+
+        return {
+            ok: true,
+            total_receitas: recs.length,
+            markup_usado:   cfgMarkup,
+            msg: [
+                `📊 ANÁLISE DE MARGENS (markup ${cfgMarkup}%)`,
+                '',
+                ...linhas,
+                '',
+                `Melhor margem: ${melhor.nome} (${melhor.margem.toFixed(1)}%)`,
+                diffMargem > 5 ? `⚠ Diferença de ${diffMargem.toFixed(1)}% entre melhor e pior — revise o cardápio.` : '✅ Margens equilibradas.',
+            ].join('\n'),
+        };
+    } catch (e) {
+        return { ok: false, erro: `Erro ao analisar margens: ${e.message}` };
+    }
+}
 function _execTool(name, args) {
     switch (name) {
-        case 'adicionar_item_estoque': return _toolAdicionarItem(args);
-        case 'atualizar_quantidade':   return _toolAtualizarQtd(args);
-        case 'marcar_itens_compra':    return _toolMarcarCompra(args);
-        case 'definir_alerta':         return _toolDefinirAlerta(args);
-        case 'remover_item_estoque':   return _toolRemoverItem(args);
+        case 'adicionar_item_estoque':        return _toolAdicionarItem(args);
+        case 'atualizar_quantidade':          return _toolAtualizarQtd(args);
+        case 'marcar_itens_compra':           return _toolMarcarCompra(args);
+        case 'definir_alerta':                return _toolDefinirAlerta(args);
+        case 'remover_item_estoque':          return _toolRemoverItem(args);
+        case 'adicionar_item_lista':          return _toolAdicionarItemLista(args);
+        case 'remover_item_lista':            return _toolRemoverItemLista(args);
+        case 'definir_orcamento_lista':       return _toolDefinirOrcamentoLista(args);
+        case 'transferir_marcados_para_lista':return _toolTransferirMarcadosParaLista(args);
+        case 'calcular_producao':             return _toolCalcularProducao(args);
+        case 'analisar_margens':              return _toolAnalisarMargens(args);
         default: return { ok: false, erro: `Ferramenta desconhecida: ${name}` };
     }
 }
 const _toolLabel = {
-    adicionar_item_estoque: 'Adicionando ao estoque',
-    atualizar_quantidade:   'Atualizando quantidade',
-    marcar_itens_compra:    'Marcando para compra',
-    definir_alerta:         'Configurando alerta',
-    remover_item_estoque:   'Removendo item',
+    adicionar_item_estoque:         'Adicionando ao estoque',
+    atualizar_quantidade:           'Atualizando quantidade',
+    marcar_itens_compra:            'Marcando para compra',
+    definir_alerta:                 'Configurando alerta',
+    remover_item_estoque:           'Removendo do estoque',
+    adicionar_item_lista:           'Adicionando à lista de compras',
+    remover_item_lista:             'Removendo da lista de compras',
+    definir_orcamento_lista:        'Definindo orçamento',
+    transferir_marcados_para_lista: 'Transferindo para lista de compras',
+    calcular_producao:              'Calculando produção',
+    analisar_margens:               'Analisando margens',
 };
 
 // ══════════════════════════════════════════════════════════════════
