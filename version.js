@@ -15,4 +15,4 @@
 //   mas deve ser mantida em sincronia manualmente — apenas 1 edição necessária.
 // ══════════════════════════════════════════════════════════════════
 
-export const VERSION = '10.0.0';
+export const VERSION = '10.3.1';
