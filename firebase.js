@@ -76,36 +76,16 @@ export function fbGetCurrentUser() {
 }
 
 // ── Auth: detecção de ambiente ────────────────────────────────────
-function _isStandalone() {
+// Redirect é usado SOMENTE no modo PWA standalone (app instalado na
+// tela inicial). Nesse contexto o window.open() é bloqueado pelo SO
+// e o popup nunca abre.
+//
+// Safari browser, Chrome iOS, Android e todos os browsers normais
+// usam signInWithPopup — comportamento comprovadamente funcional
+// na v1.0 do projeto em todos esses ambientes.
+function _deveUsarRedirect() {
     return window.matchMedia('(display-mode: standalone)').matches ||
            window.navigator.standalone === true;
-}
-
-// Safari (desktop e iOS) e qualquer browser iOS (Chrome iOS, Firefox iOS)
-// bloqueiam signInWithPopup por dois motivos distintos:
-//
-//   iOS:             window.open() dentro de função async perde a cadeia
-//                    de "user gesture" no microtask scheduler do WebKit →
-//                    Safari mata o popup silenciosamente → auth/internal-error.
-//
-//   Safari desktop:  mesmo comportamento com popups de múltiplos redirects
-//                    internos (ITP). O popup abre, chega na senha, é morto.
-//
-//   iPad desktop mode: UA reporta "Macintosh" — /iPad/ não bate.
-//                    Detectado via maxTouchPoints > 1 + platform Mac.
-//
-// Solução: redirect para todo WebKit/Safari. Chrome e Firefox desktop
-// usam popup normalmente (postMessage, sem dependência de cookies).
-function _deveUsarRedirect() {
-    if (_isStandalone()) return true;
-    const ua = navigator.userAgent;
-    // iOS devices (incluindo Chrome iOS e Firefox iOS — todos usam WebKit)
-    if (/iPhone|iPad|iPod/.test(ua)) return true;
-    // iPad em modo desktop: UA diz "Macintosh" mas tem touch
-    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
-    // Safari desktop: tem "Safari" mas NÃO tem "Chrome" nem "Chromium" nem "Firefox"
-    if (/Safari/.test(ua) && !/Chrome|Chromium|Firefox/.test(ua)) return true;
-    return false;
 }
 
 // ── Auth: login Google ────────────────────────────────────────────
