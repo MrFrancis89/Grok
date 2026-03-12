@@ -75,18 +75,71 @@ export function fbGetCurrentUser() {
     });
 }
 
-// ── Auth: login Google ────────────────────────────────────────────
+// ── Auth: detectar se está em PWA standalone ──────────────────────
+function _isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true;
+}
+
+// ── Auth: login Google (popup em browser, redirect em PWA) ────────
+// signInWithPopup não funciona em PWAs instaladas (modo standalone):
+// o sistema bloqueia o popup silenciosamente → auth/internal-error.
+// Solução: usar redirect no standalone; popup como fallback no browser.
 export async function fbSignInGoogle() {
     if (!_auth) throw new Error('Firebase não inicializado');
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    const cred = await _auth.signInWithPopup(provider);
-    _uid   = cred.user.uid;
-    _user  = cred.user;
-    _ready = true;
-    _readyListeners.forEach(fn => fn(_user));
-    console.info(`[firebase] ✓ Login Google. UID: ${_uid}`);
-    return cred.user;
+
+    if (_isStandalone()) {
+        // PWA instalada: salva flag e dispara redirect (retorna vazio —
+        // o resultado é tratado por fbGetRedirectResult() na próxima carga)
+        sessionStorage.setItem('sf_auth_redirect', '1');
+        await _auth.signInWithRedirect(provider);
+        return null; // nunca chega aqui — o browser navega
+    }
+
+    // Browser normal: tenta popup primeiro
+    try {
+        const cred = await _auth.signInWithPopup(provider);
+        _uid   = cred.user.uid;
+        _user  = cred.user;
+        _ready = true;
+        _readyListeners.forEach(fn => fn(_user));
+        console.info(`[firebase] ✓ Login Google (popup). UID: ${_uid}`);
+        return cred.user;
+    } catch (e) {
+        // Popup bloqueado ou internal-error → fallback para redirect
+        if (e.code === 'auth/popup-blocked' ||
+            e.code === 'auth/internal-error' ||
+            e.code === 'auth/popup-closed-by-user') {
+            sessionStorage.setItem('sf_auth_redirect', '1');
+            await _auth.signInWithRedirect(provider);
+            return null;
+        }
+        throw e; // outros erros: propaga normalmente
+    }
+}
+
+// ── Auth: capturar resultado do redirect (chamar no boot) ─────────
+export async function fbGetRedirectResult() {
+    if (!_auth) return null;
+    try {
+        const cred = await _auth.getRedirectResult();
+        if (cred?.user) {
+            _uid   = cred.user.uid;
+            _user  = cred.user;
+            _ready = true;
+            sessionStorage.removeItem('sf_auth_redirect');
+            _readyListeners.forEach(fn => fn(_user));
+            console.info(`[firebase] ✓ Login Google (redirect). UID: ${_uid}`);
+            return cred.user;
+        }
+    } catch (e) {
+        console.error('[firebase] getRedirectResult erro:', e);
+        sessionStorage.removeItem('sf_auth_redirect');
+        throw e;
+    }
+    return null;
 }
 
 // ── Auth: logout ──────────────────────────────────────────────────
