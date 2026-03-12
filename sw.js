@@ -25,12 +25,24 @@
 //              e não conseguia acionar o fallback via IndexedDB.
 //   CORREÇÃO : Requisições Firebase são detectadas e deixadas
 //              propagar silenciosamente; storage.js assume controle.
+// BUG #8 — auth/internal-error no login Google (signInWithPopup)
+//   PROBLEMA : O fluxo OAuth usa securetoken.googleapis.com,
+//              accounts.google.com, oauth2.googleapis.com e
+//              firebaseapp.com para trocar o código pelo token.
+//              O SW interceptava essas requisições GET, não as
+//              encontrava no cache e devolvia index.html como
+//              fallback. O SDK recebia HTML em vez de JSON e
+//              lançava auth/internal-error.
+//   CORREÇÃO : Todos os domínios do fluxo OAuth/Auth são
+//              adicionados ao bypass — o SW deixa o browser
+//              lidar diretamente com essas requisições.
 // ══════════════════════════════════════════════════════════════════
 
 // BUG FIX #4: VERSION alinhada com o cabeçalho do arquivo (era '9.7.5').
 // v9.8.2: bypass gstatic.com para SDK Firebase não bloquear modo offline.
 // v10.1.0: gemini.js e gemini.css adicionados ao cache.
-const VERSION    = '10.3.0';
+// v10.3.1: BUG #8 — bypass completo do fluxo OAuth Google (auth/internal-error).
+const VERSION    = '10.3.1';
 const CACHE_NAME = 'stockflow-v' + VERSION.replace(/\./g, '-');
 
 const ASSETS = [
@@ -134,20 +146,23 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     if (e.request.method !== 'GET') return;
 
-    // BUG FIX #7: Requisições Firebase (cross-origin) não devem ser interceptadas.
-    // Se falhar por falta de rede, o erro propaga para storage.js acionar o
-    // fallback via IndexedDB. Devolver index.html aqui quebraria esse fluxo.
-    const url = e.request.url;
-    // BUG FIX #7 (ampliado): inclui gstatic.com onde o SDK compat é servido.
-    // Sem este bypass, o SW intercepta os <script> do Firebase em ficha-tecnica.html,
-    // não os encontra no cache, devolve index.html como fallback e o browser
-    // falha ao executar HTML como JS (erro de MIME), deixando a tela branca.
-    const isFirebase = url.includes('firebaseio.com') ||
-                       url.includes('firestore.googleapis.com') ||
-                       url.includes('firebase.googleapis.com') ||
-                       url.includes('identitytoolkit.googleapis.com') ||
-                       url.includes('gstatic.com/firebasejs');
-    if (isFirebase) return;
+    // ── Bypass: todas as requisições externas do fluxo Firebase/OAuth ──
+    // Qualquer domínio fora da origem do app deve ser tratado pelo browser
+    // diretamente. O SW não tem como cachear respostas autenticadas, e
+    // devolver index.html como fallback quebra o parsing JSON do SDK.
+    //
+    // Domínios cobertos:
+    //  • firebaseio.com / firestore.googleapis.com  → Firestore CRUD
+    //  • firebase.googleapis.com                    → Firebase REST
+    //  • identitytoolkit.googleapis.com             → Auth REST API
+    //  • securetoken.googleapis.com                 → Troca código OAuth → token
+    //  • oauth2.googleapis.com                      → Renovação de tokens
+    //  • accounts.google.com                        → Popup Google Sign-In
+    //  • firebaseapp.com                            → Handler OAuth de retorno
+    //  • gstatic.com/firebasejs                     → SDK compat via CDN
+    //  • api.groq.com                               → API Groq IA
+    const isExternal = !url.startsWith(self.location.origin);
+    if (isExternal) return;
 
     e.respondWith(
         caches.match(e.request).then(cached => {
