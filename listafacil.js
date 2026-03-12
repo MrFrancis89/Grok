@@ -522,3 +522,96 @@ function parseMoeda(str) {
 function fmtQtd(val) {
     const n=Number(val)||0; return n%1===0?String(n):n.toFixed(2).replace('.',',');
 }
+
+// ══════════════════════════════════════════════════════════════════
+// API INTERNA — Usada exclusivamente pelo módulo ia.js
+// Manipula o estado privado (lfItens / lfOrcamento) e re-renderiza
+// a UI, garantindo que as mudanças feitas pela IA reflitam em tempo
+// real na aba Lista Fácil sem precisar recarregar a página.
+// ══════════════════════════════════════════════════════════════════
+
+/** Retorna uma cópia imutável dos itens atuais da lista. */
+export function iaObterItensLF() {
+    return lfItens.map(it => ({ ...it }));
+}
+
+/** Retorna o orçamento atual. */
+export function iaObterOrcamentoLF() {
+    return lfOrcamento;
+}
+
+/**
+ * Adiciona um item à lista de compras.
+ * @param {string} nome
+ * @param {number} [quantidade=1]
+ * @param {number} [preco=0]
+ */
+export function iaAdicionarItemLF(nome, quantidade = 1, preco = 0) {
+    if (!nome?.trim()) return { ok: false, erro: 'Nome não informado.' };
+    const q = nome.toLowerCase().trim();
+    if (lfItens.some(it => it.n.toLowerCase() === q))
+        return { ok: false, erro: `"${nome}" já está na lista.` };
+    lfItens.push({ id: Date.now(), n: nome.trim(), q: Number(quantidade) || 1, p: Number(preco) || 0 });
+    salvarLF();
+    renderLFLista();
+    atualizarGauge();
+    return { ok: true, msg: `"${nome.trim()}" adicionado à lista de compras.` };
+}
+
+/**
+ * Remove um item da lista de compras (busca parcial pelo nome).
+ * @param {string} nome
+ */
+export function iaRemoverItemLF(nome) {
+    if (!nome?.trim()) return { ok: false, erro: 'Nome não informado.' };
+    const q = nome.toLowerCase().trim();
+    const idx = lfItens.findIndex(it =>
+        it.n.toLowerCase() === q || it.n.toLowerCase().includes(q) || q.includes(it.n.toLowerCase())
+    );
+    if (idx < 0) return { ok: false, erro: `"${nome}" não encontrado na lista.` };
+    const removido = lfItens[idx].n;
+    lfItens.splice(idx, 1);
+    salvarLF();
+    renderLFLista();
+    atualizarGauge();
+    return { ok: true, msg: `"${removido}" removido da lista de compras.` };
+}
+
+/**
+ * Define o orçamento da lista de compras.
+ * @param {number} valor  Valor em R$
+ */
+export function iaDefinirOrcamentoLF(valor) {
+    const v = Number(valor);
+    if (!v || v <= 0) return { ok: false, erro: 'Valor de orçamento inválido.' };
+    lfOrcamento = v;
+    salvarOrcamentoLF(lfOrcamento);
+    atualizarGauge();
+    return { ok: true, msg: `Orçamento da Lista Fácil definido para R$ ${v.toFixed(2).replace('.', ',')}.` };
+}
+
+/**
+ * Adiciona múltiplos itens de uma vez à lista (usado por transferir_marcados).
+ * Itens já presentes são ignorados.
+ * @param {Array<{nome: string, quantidade?: number, preco?: number}>} itens
+ */
+export function iaAdicionarVariosItensLF(itens) {
+    if (!Array.isArray(itens) || !itens.length) return { ok: false, erro: 'Nenhum item informado.' };
+    const adicionados = [], ignorados = [];
+    for (const it of itens) {
+        const nome = it.nome?.trim();
+        if (!nome) continue;
+        if (lfItens.some(x => x.n.toLowerCase() === nome.toLowerCase())) {
+            ignorados.push(nome); continue;
+        }
+        lfItens.push({ id: Date.now() + Math.random(), n: nome, q: Number(it.quantidade) || 1, p: Number(it.preco) || 0 });
+        adicionados.push(nome);
+    }
+    if (adicionados.length) { salvarLF(); renderLFLista(); atualizarGauge(); }
+    return {
+        ok: adicionados.length > 0,
+        msg: adicionados.length
+            ? `${adicionados.length} item(s) transferido(s): ${adicionados.join(', ')}.${ignorados.length ? ` Já existiam: ${ignorados.join(', ')}.` : ''}`
+            : `Todos os itens já estavam na lista: ${ignorados.join(', ')}.`,
+    };
+}
