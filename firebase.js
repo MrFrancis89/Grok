@@ -75,28 +75,38 @@ export function fbGetCurrentUser() {
     });
 }
 
-// ── Auth: detectar se está em PWA standalone ──────────────────────
+// ── Auth: PWA standalone ─────────────────────────────────────────
 function _isStandalone() {
     return window.matchMedia('(display-mode: standalone)').matches ||
            window.navigator.standalone === true;
 }
 
-// ── Auth: login Google (popup em browser, redirect em PWA) ────────
-// signInWithPopup não funciona em PWAs instaladas (modo standalone):
-// o sistema bloqueia o popup silenciosamente → auth/internal-error.
-// Solução: usar redirect no standalone; popup como fallback no browser.
+// ── Auth: login Google ────────────────────────────────────────────
+// ESTRATÉGIA GITHUB PAGES:
+//   signInWithRedirect está quebrado em qualquer domínio fora do Firebase
+//   Hosting porque o SDK usa um iframe invisível para firebaseapp.com para
+//   trocar o token OAuth. Browsers modernos bloqueiam esse iframe como
+//   cookie de terceiro (Chrome, Firefox, Safari com ITP).
+//   Resultado: getRedirectResult() sempre retorna null → loop de login.
+//
+//   signInWithPopup usa postMessage (não cookies), por isso funciona mesmo
+//   com third-party cookies bloqueados. É o único fluxo confiável no GitHub Pages.
+//   Redirect só é usado em PWA standalone (onde popup é impossível).
 export async function fbSignInGoogle() {
     if (!_auth) throw new Error('Firebase não inicializado');
     const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
+    // Sem prompt:'select_account' — menos redirects internos no popup,
+    // menor chance de o browser matar o popup mid-flow.
+    // Se o usuário quiser trocar de conta, pode fazer logout primeiro.
 
     if (_isStandalone()) {
-        // PWA instalada: redirect (sem popup)
+        // PWA instalada: popup é bloqueado pelo OS → único jeito é redirect
         await _auth.signInWithRedirect(provider);
         return null;
     }
 
-    // Browser normal: tenta popup primeiro
+    // Todos os browsers (incluindo Safari iOS em modo web):
+    // popup via postMessage — funciona sem third-party cookies
     try {
         const cred = await _auth.signInWithPopup(provider);
         _uid   = cred.user.uid;
@@ -106,13 +116,10 @@ export async function fbSignInGoogle() {
         console.info(`[firebase] ✓ Login Google (popup). UID: ${_uid}`);
         return cred.user;
     } catch (e) {
-        // Popup bloqueado ou internal-error → fallback para redirect
-        if (e.code === 'auth/popup-blocked' ||
-            e.code === 'auth/internal-error' ||
-            e.code === 'auth/popup-closed-by-user') {
-            await _auth.signInWithRedirect(provider);
-            return null;
-        }
+        // auth/popup-closed-by-user: usuário fechou o popup — relança para o
+        // chamador exibir mensagem, NÃO faz redirect (redirect é quebrado no GitHub Pages).
+        // auth/popup-blocked: browser bloqueou o popup — relança com código
+        // identificável para exibir instrução de como permitir popups.
         throw e;
     }
 }
