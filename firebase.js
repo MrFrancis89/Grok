@@ -91,11 +91,9 @@ export async function fbSignInGoogle() {
     provider.setCustomParameters({ prompt: 'select_account' });
 
     if (_isStandalone()) {
-        // PWA instalada: salva flag e dispara redirect (retorna vazio —
-        // o resultado é tratado por fbGetRedirectResult() na próxima carga)
-        sessionStorage.setItem('sf_auth_redirect', '1');
+        // PWA instalada: redirect (sem popup)
         await _auth.signInWithRedirect(provider);
-        return null; // nunca chega aqui — o browser navega
+        return null;
     }
 
     // Browser normal: tenta popup primeiro
@@ -112,11 +110,10 @@ export async function fbSignInGoogle() {
         if (e.code === 'auth/popup-blocked' ||
             e.code === 'auth/internal-error' ||
             e.code === 'auth/popup-closed-by-user') {
-            sessionStorage.setItem('sf_auth_redirect', '1');
             await _auth.signInWithRedirect(provider);
             return null;
         }
-        throw e; // outros erros: propaga normalmente
+        throw e;
     }
 }
 
@@ -129,14 +126,12 @@ export async function fbGetRedirectResult() {
             _uid   = cred.user.uid;
             _user  = cred.user;
             _ready = true;
-            sessionStorage.removeItem('sf_auth_redirect');
             _readyListeners.forEach(fn => fn(_user));
             console.info(`[firebase] ✓ Login Google (redirect). UID: ${_uid}`);
             return cred.user;
         }
     } catch (e) {
         console.error('[firebase] getRedirectResult erro:', e);
-        sessionStorage.removeItem('sf_auth_redirect');
         throw e;
     }
     return null;
