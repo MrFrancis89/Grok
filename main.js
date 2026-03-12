@@ -33,7 +33,7 @@ import {
     initStorage,
 } from './storage.js';
 import { initFirebase, fbGetCurrentUser, fbSignInGoogle,
-         fbSignOut, fbIsAvailable, fbGetUser }            from './firebase.js';
+         fbGetRedirectResult, fbSignOut, fbIsAvailable, fbGetUser } from './firebase.js';
 import { produtosPadrao }       from './produtos.js';
 import { VERSION }              from './version.js';
 import appStore                 from './store.js';
@@ -117,15 +117,33 @@ async function _initFirebaseApp() {
     ]);
     if (!sdkOk) return false; // sem SDK → modo offline
 
+    // 1. Capturar resultado de redirect OAuth — SEMPRE, sem condição.
+    //    O Firebase SDK resolve em <1ms com null se não houver redirect pendente.
+    //    NÃO usar flag sessionStorage: signInWithRedirect navega para outro domínio
+    //    (accounts.google.com → firebaseapp.com → app), e o iOS/PWA limpa o
+    //    sessionStorage nessa travessia. A flag sumia e getRedirectResult() nunca
+    //    era chamado, causando o loop de login.
+    try {
+        const redirectUser = await fbGetRedirectResult();
+        if (redirectUser) {
+            _atualizarHeaderUser(redirectUser);
+            await fbPullPrincipal();
+            return true;
+        }
+    } catch (e) {
+        // Sem resultado de redirect ou erro → continua para verificar sessão existente
+        console.warn('[main] getRedirectResult:', e.code || e.message);
+    }
+
+    // 2. Verificar sessão existente (token já persistido pelo SDK)
     const user = await fbGetCurrentUser();
     if (user) {
-        // Sessão existente — pull silencioso
         _atualizarHeaderUser(user);
         await fbPullPrincipal();
         return true;
     }
 
-    // Não logado → mostrar login e aguardar
+    // 3. Não logado → mostrar tela de login e aguardar clique
     return new Promise(resolve => {
         _mostrarLoginApp();
         document.getElementById('app-btn-google')?.addEventListener('click', async () => {
@@ -133,20 +151,26 @@ async function _initFirebaseApp() {
             if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Aguarde…'; }
             try {
                 const u = await fbSignInGoogle();
+                // Se u === null, foi disparado um redirect — a página vai recarregar.
+                // Mostramos feedback visual enquanto o browser navega.
+                if (!u) {
+                    if (btn) btn.querySelector('span').textContent = 'Redirecionando…';
+                    return; // resolve() nunca chamado aqui — redirect cuida disso
+                }
                 _ocultarLoginApp();
                 _atualizarHeaderUser(u);
                 await fbPullPrincipal();
                 resolve(true);
             } catch (e) {
                 const msg = e.code === 'auth/popup-closed-by-user'   ? 'Login cancelado.' :
-                            e.code === 'auth/popup-blocked'           ? 'Popup bloqueado. Permita popups para este site nas configurações do navegador.' :
+                            e.code === 'auth/popup-blocked'           ? 'Popup bloqueado — será usado o redirecionamento. Tente novamente.' :
                             e.code === 'auth/network-request-failed'  ? 'Sem conexão. Verifique a internet e tente novamente.' :
                             e.code === 'auth/cancelled-popup-request' ? 'Outro login em andamento. Aguarde e tente novamente.' :
-                            e.code === 'auth/unauthorized-domain'     ? 'Domínio não autorizado no Firebase. Verifique as configurações do projeto.' :
+                            e.code === 'auth/unauthorized-domain'     ? 'Domínio não autorizado no Firebase Console. Adicione este domínio em Authentication → Settings → Authorized domains.' :
+                            e.code === 'auth/operation-not-allowed'   ? 'Login Google não está ativado no Firebase Console.' :
                             `Falha ao entrar (${e.code || 'erro desconhecido'}). Tente novamente.`;
                 _mostrarLoginApp(msg);
                 if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Entrar com Google'; }
-                // Não resolve → usuário tenta de novo
             }
         }, { once: false });
     });
