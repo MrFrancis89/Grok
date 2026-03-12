@@ -146,33 +146,52 @@ async function _initFirebaseApp() {
     // 3. Não logado → mostrar tela de login e aguardar clique
     return new Promise(resolve => {
         _mostrarLoginApp();
-        document.getElementById('app-btn-google')?.addEventListener('click', async () => {
+
+        function _anexarBotaoLogin() {
             const btn = document.getElementById('app-btn-google');
-            if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Aguarde…'; }
-            try {
-                const u = await fbSignInGoogle();
-                // Se u === null, foi disparado um redirect — a página vai recarregar.
-                // Mostramos feedback visual enquanto o browser navega.
-                if (!u) {
-                    if (btn) btn.querySelector('span').textContent = 'Redirecionando…';
-                    return; // resolve() nunca chamado aqui — redirect cuida disso
+            if (!btn) return;
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.querySelector('span').textContent = 'Aguarde…';
+                try {
+                    const u = await fbSignInGoogle();
+                    // u === null → PWA standalone disparou redirect → página vai recarregar
+                    if (!u) {
+                        btn.querySelector('span').textContent = 'Redirecionando…';
+                        return;
+                    }
+                    _ocultarLoginApp();
+                    _atualizarHeaderUser(u);
+                    await fbPullPrincipal();
+                    resolve(true);
+                } catch (e) {
+                    console.error('[main] fbSignInGoogle erro:', e.code, e.message);
+                    let msg;
+                    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+                        msg = 'Popup fechado antes de concluir. Tente novamente.';
+                    } else if (e.code === 'auth/popup-blocked') {
+                        msg = 'Popup bloqueado pelo browser. Permita popups para este site e tente novamente.';
+                    } else if (e.code === 'auth/network-request-failed') {
+                        msg = 'Sem conexão. Verifique a internet e tente novamente.';
+                    } else if (e.code === 'auth/unauthorized-domain') {
+                        msg = 'Domínio não autorizado. Adicione mrfrancis89.github.io em Firebase Console → Authentication → Authorized domains.';
+                    } else if (e.code === 'auth/operation-not-allowed') {
+                        msg = 'Login Google não está ativado no Firebase Console.';
+                    } else if (e.code === 'auth/internal-error') {
+                        msg = 'Erro interno do Firebase. Verifique se mrfrancis89.github.io está nos Authorized domains do Firebase Console.';
+                    } else {
+                        msg = `Erro: ${e.code || e.message || 'desconhecido'}. Tente novamente.`;
+                    }
+                    _mostrarLoginApp(msg);
+                    // Re-habilita o botão e re-anexa o listener para nova tentativa
+                    btn.disabled = false;
+                    btn.querySelector('span').textContent = 'Entrar com Google';
+                    _anexarBotaoLogin();
                 }
-                _ocultarLoginApp();
-                _atualizarHeaderUser(u);
-                await fbPullPrincipal();
-                resolve(true);
-            } catch (e) {
-                const msg = e.code === 'auth/popup-closed-by-user'   ? 'Login cancelado.' :
-                            e.code === 'auth/popup-blocked'           ? 'Popup bloqueado — será usado o redirecionamento. Tente novamente.' :
-                            e.code === 'auth/network-request-failed'  ? 'Sem conexão. Verifique a internet e tente novamente.' :
-                            e.code === 'auth/cancelled-popup-request' ? 'Outro login em andamento. Aguarde e tente novamente.' :
-                            e.code === 'auth/unauthorized-domain'     ? 'Domínio não autorizado no Firebase Console. Adicione este domínio em Authentication → Settings → Authorized domains.' :
-                            e.code === 'auth/operation-not-allowed'   ? 'Login Google não está ativado no Firebase Console.' :
-                            `Falha ao entrar (${e.code || 'erro desconhecido'}). Tente novamente.`;
-                _mostrarLoginApp(msg);
-                if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Entrar com Google'; }
-            }
-        }, { once: false });
+            }, { once: true });
+        }
+
+        _anexarBotaoLogin();
     });
 }
 
