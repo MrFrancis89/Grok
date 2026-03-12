@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <!-- FIX v10.0.0 — Content Security Policy: previne XSS e execução de
+         scripts inline não autorizados. script-src inclui 'nonce' ou hashes
+         para scripts inline se necessário. unsafe-inline removido intencionalmente
+         para garantir que esc() em ui.js seja a única defesa necessária.
+         Firebase SDK carregado de cdn.firebase.google.com e gstatic.com. -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://www.gstatic.com/firebasejs/ https://cdn.firebase.google.com/;
+                   connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com;
+                   style-src 'self' 'unsafe-inline';
+                   img-src 'self' data: blob: https://*.googleusercontent.com;
+                   font-src 'self';
+                   object-src 'none';
+                   base-uri 'self';
+                   frame-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>StockFlow Pro v10.0.0</title>
+    <meta name="theme-color" content="#000000">
+
+    <link rel="icon" href="icone.png" type="image/png">
+    <link rel="apple-touch-icon" href="icone.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StockFlow Pro">
+
+    <link rel="manifest" href="manifest.json">
+    <!-- FOUC Prevention: aplica classe de tema ao <html> ANTES do primeiro render -->
+    <script>
+    (function() {
+      var TEMA_KEY = 'temaEstoque'; // deve coincidir com STORAGE_KEYS.tema em storage.js
+      var ALIAS = { 'claro': 'arctic' };
+      var MAP   = { 'midnight': 'theme-midnight', 'arctic': 'theme-arctic', 'forest': 'theme-forest' };
+      var t   = localStorage.getItem(TEMA_KEY) || '';
+      t       = ALIAS[t] || t;
+      var cls = MAP[t];
+      if (cls) {
+        document.documentElement.classList.add(cls);
+        if (cls === 'theme-arctic') document.documentElement.classList.add('light-mode');
+      }
+    })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="massa-extra.css">
+    <link rel="stylesheet" href="apple-overrides.css">
+    <link rel="stylesheet" href="patch-v976.css">
+    <link rel="stylesheet" href="patch-v980.css"><!-- v9.8.0: bg fixo iOS + scroll FT --><!-- v9.7.6+: fixes + layout Ficha Técnica + menu retrátil -->
+    <link rel="stylesheet" href="bg-upload.css">
+    <link rel="stylesheet" href="apple-premium-v10.css"><!-- v10: Apple HIG premium overlay -->
+    <link rel="stylesheet" href="ia.css"><!-- v10.3: IA module (Groq) -->
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+    <!-- Login overlay styles -->
+    <style>
+    #app-login-overlay {
+        display: none;
+        position: fixed; inset: 0; z-index: 99999;
+        background: var(--bg, #0a0a0a);
+        align-items: center; justify-content: center;
+        padding: 24px;
+        padding-top: max(24px, env(safe-area-inset-top));
+        opacity: 0; transition: opacity .3s;
+    }
+    #app-login-overlay.visible { opacity: 1; }
+    .app-login-box {
+        width: 100%; max-width: 360px;
+        display: flex; flex-direction: column;
+        align-items: center; gap: 16px; text-align: center;
+    }
+    .app-login-logo { font-size: 64px; animation: app-bounce 2s ease-in-out infinite; }
+    @keyframes app-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    .app-login-title { font-size: 28px; font-weight: 700; color: #fff; margin: 0; letter-spacing:-.5px; }
+    .app-login-sub { font-size: 15px; color: rgba(255,255,255,.55); line-height: 1.5; margin: 0; }
+    #app-btn-google {
+        display: flex; align-items: center; gap: 12px;
+        background: #fff; color: #1f1f1f; border: none; border-radius: 14px;
+        padding: 14px 24px; font-size: 16px; font-weight: 600;
+        cursor: pointer; width: 100%; justify-content: center;
+        box-shadow: 0 2px 12px rgba(0,0,0,.25);
+        transition: transform .15s, opacity .15s;
+        margin-top: 8px; -webkit-tap-highlight-color: transparent;
+    }
+    #app-btn-google:active { transform: scale(.97); }
+    #app-btn-google:disabled { opacity: .6; cursor: not-allowed; }
+    #app-btn-google svg { width: 22px; height: 22px; flex-shrink: 0; }
+    .app-login-hint { font-size: 13px; color: rgba(255,255,255,.35); line-height: 1.5; margin: 0; }
+    .app-login-erro { font-size: 14px; color: #ff453a; background: rgba(255,69,58,.12);
+        border: 1px solid rgba(255,69,58,.3); border-radius: 10px;
+        padding: 10px 14px; width: 100%; box-sizing: border-box; min-height: 0; }
+    .app-login-erro:empty { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ===== TOAST CONTAINER ===== -->
+    <!-- BACKGROUND FIXO: div real em vez de body::before.
+         Safari iOS nao respeita position:fixed em pseudo-elementos,
+         causando rolagem e zoom do fundo ao scrollar. -->
+    
+    <!-- ===== LOGIN OVERLAY ===== -->
+    <div id="app-login-overlay">
+        <div class="app-login-box">
+            <div class="app-login-logo">📦</div>
+            <h1 class="app-login-title">StockFlow Pro</h1>
+            <p class="app-login-sub">Faça login para sincronizar seu estoque<br>em qualquer dispositivo.</p>
+            <div class="app-login-erro"></div>
+            <button id="app-btn-google">
+                <svg viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <span>Entrar com Google</span>
+            </button>
+            <p class="app-login-hint">Seus dados ficam vinculados à sua conta Google.</p>
+        </div>
+    </div>
+
+    <div id="bg-fixed" aria-hidden="true"></div>
+
+    <div id="toast-container"></div>
+
+    <!-- ===== MODAL: CONFIRMAÇÃO ===== -->
+    <div id="modal-confirm" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div id="modal-text">Mensagem</div>
+            <div class="modal-buttons">
+                <button id="modal-btn-cancel">Cancelar</button>
+                <button id="modal-btn-confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: NOVIDADES ===== -->
+    <div id="modal-whatsnew" class="modal-overlay" style="display:none;">
+        <div class="modal-box modal-box--whatsnew">
+            <div class="modal-header">
+                <span class="modal-header-title">O que há de novo</span>
+                <button class="fechar-whatsnew fechar-whatsnew-icon" aria-label="Fechar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div id="whatsnew-content" class="modal-whatsnew-content"></div>
+            <div class="modal-footer-center">
+                <button class="fechar-whatsnew fechar-whatsnew-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: CALCULADORA (Estoque) ===== -->
+    <div id="modal-calc" class="modal-overlay" style="display:none;">
+        <div class="calc-box">
+            <div class="calc-header">
+                <span id="calc-title">Calculadora</span>
+                <button class="calc-close" aria-label="Fechar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div id="calc-display">0</div>
+            <div class="calc-grid">
+                <button class="calc-btn calc-bg-op" data-calc="C">C</button>
+                <button class="calc-btn calc-bg-op" data-calc="÷">/</button>
+                <button class="calc-btn calc-bg-op" data-calc="×">×</button>
+                <button class="calc-btn calc-bg-op" data-calc="BACK" aria-label="Apagar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H7.5a2 2 0 00-1.62.84L2 12l3.88 6.16A2 2 0 007.5 19H21a2 2 0 002-2V7a2 2 0 00-2-2z"/><path d="M15 9l-4 6m4 0l-4-6"/></svg></button>
+                <button class="calc-btn" data-calc="7">7</button>
+                <button class="calc-btn" data-calc="8">8</button>
+                <button class="calc-btn" data-calc="9">9</button>
+                <button class="calc-btn calc-bg-op" data-calc="-">-</button>
+                <button class="calc-btn" data-calc="4">4</button>
+                <button class="calc-btn" data-calc="5">5</button>
+                <button class="calc-btn" data-calc="6">6</button>
+                <button class="calc-btn calc-bg-op" data-calc="+">+</button>
+                <button class="calc-btn" data-calc="1">1</button>
+                <button class="calc-btn" data-calc="2">2</button>
+                <button class="calc-btn" data-calc="3">3</button>
+                <button class="calc-btn calc-bg-confirm calc-btn-ok" data-calc="OK">OK</button>
+                <button class="calc-btn" data-calc="0">0</button>
+                <button class="calc-btn calc-bg-op" data-calc="%">%</button>
+                <button class="calc-btn" data-calc=",">,</button>
+            </div>
+            <button id="calc-btn-teclado" class="btn-half btn-calc-teclado">Usar teclado</button>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: ALERTA DE ESTOQUE ===== -->
+    <div id="modal-alerta" class="modal-overlay" style="display:none;">
+        <div class="modal-box modal-box--alerta">
+            <div class="modal-header">
+                <span class="modal-header-title">Configurar Alerta</span>
+                <button class="fechar-modal-alerta fechar-modal-icon" aria-label="Fechar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-field">
+                <label class="modal-label">Estoque Mínimo</label>
+                <input type="number" id="alerta-min" class="modal-input" placeholder="0 (sem alerta)">
+            </div>
+            <div class="modal-field">
+                <label class="modal-label">Estoque Máximo</label>
+                <input type="number" id="alerta-max" class="modal-input" placeholder="0 (sem alerta)">
+            </div>
+            <div class="modal-buttons">
+                <button id="salvar-alerta" class="btn-salvar-alerta">Salvar</button>
+                <button class="fechar-modal-alerta btn-cancelar-alerta">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: CALCULADORA LISTA FÁCIL ===== -->
+    <div id="lf-calcModal" class="modal-overlay" style="display:none;">
+        <div class="calc-box">
+            <div class="calc-header">
+                <span id="lf-calc-title">Calculadora</span>
+                <button class="calc-close" id="lf-closeCalc" aria-label="Fechar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div id="lf-calc-display">0</div>
+            <div class="calc-grid">
+                <button class="calc-btn calc-bg-op" data-lf-calc="C">C</button>
+                <button class="calc-btn calc-bg-op" data-lf-calc="÷">÷</button>
+                <button class="calc-btn calc-bg-op" data-lf-calc="×">×</button>
+                <button class="calc-btn calc-bg-op" data-lf-calc="BACK" aria-label="Apagar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H7.5a2 2 0 00-1.62.84L2 12l3.88 6.16A2 2 0 007.5 19H21a2 2 0 002-2V7a2 2 0 00-2-2z"/><path d="M15 9l-4 6m4 0l-4-6"/></svg></button>
+                <button class="calc-btn" data-lf-calc="7">7</button>
+                <button class="calc-btn" data-lf-calc="8">8</button>
+                <button class="calc-btn" data-lf-calc="9">9</button>
+                <button class="calc-btn calc-bg-op" data-lf-calc="-">-</button>
+                <button class="calc-btn" data-lf-calc="4">4</button>
+                <button class="calc-btn" data-lf-calc="5">5</button>
+                <button class="calc-btn" data-lf-calc="6">6</button>
+                <button class="calc-btn calc-bg-op" data-lf-calc="+">+</button>
+                <button class="calc-btn" data-lf-calc="1">1</button>
+                <button class="calc-btn" data-lf-calc="2">2</button>
+                <button class="calc-btn" data-lf-calc="3">3</button>
+                <button class="calc-btn calc-bg-confirm calc-btn-ok" data-lf-calc="OK">OK</button>
+                <button class="calc-btn calc-btn-zero" data-lf-calc="0">0</button>
+                <button class="calc-btn" data-lf-calc=",">,</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: CHANGELOG LISTA FÁCIL ===== -->
+    <div id="lf-changelogModal" class="modal-overlay" style="display:none;">
+        <div class="modal-box modal-box--changelog">
+            <div class="modal-header">
+                <span class="modal-header-title"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> Histórico — Lista Fácil</span>
+                <button id="lf-closeChangelog" class="fechar-modal-icon" aria-label="Fechar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="lf-changelog-content">
+                <p style="margin-bottom:12px;"><strong>v2.6.0</strong> — Histórico Global de Preços<br>
+                Nova aba "Histórico" com painel completo de evolução de preços por produto: sparkline expandida, mín/máx, tendência, chips de datas e opção de limpar por item ou tudo.</p>
+                <p style="margin-bottom:12px;"><strong>v2.5.0</strong> — Glass morphism, Gauge, Sparklines, PWA<br>
+                Módulo totalmente reescrito como ES Module. Bugs de listener acumulado e índice stale corrigidos.</p>
+                <p style="margin-bottom:12px;"><strong>v2.2.2</strong> — Campo de orçamento limpa ao focar, restaura ao cancelar.</p>
+                <p style="margin-bottom:12px;"><strong>v2.2.1</strong> — Formatação de moeda com separador de milhar.</p>
+                <p style="margin-bottom:12px;"><strong>v2.2.0</strong> — Swipe para excluir item. Comparador de preços por unidade.</p>
+                <p style="margin-bottom:12px;"><strong>v2.1.0</strong> — Calculadora modal integrada ao campo de preço.</p>
+                <p><strong>v2.0.0</strong> — Versão inicial com lista de compras, orçamento e total.</p>
+            </div>
+            <div class="modal-footer-center">
+                <button id="lf-closeChangelogBtn" class="btn-fechar-changelog">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: ADICIONAR ITEM — LISTA FÁCIL ===== -->
+    <div id="lf-addModal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span class="modal-header-title">Adicionar Item</span>
+                <button id="lf-closeAddModal" class="fechar-modal-icon" aria-label="Fechar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-field">
+                <label class="modal-label">Nome do produto</label>
+                <input type="text" id="lf-addNomeInput" class="modal-input"
+                       placeholder="Ex: Tomate" autocomplete="off" autocorrect="off">
+            </div>
+            <div class="modal-buttons">
+                <button id="lf-confirmAddItem" class="modal-btn-confirmar sucesso">Adicionar</button>
+                <button id="lf-cancelAddItem">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== FAB: LISTA FÁCIL ===== -->
+    <button id="lf-fabAddItem" aria-label="Adicionar item" style="display:none;"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+
+    <!-- ===== CLUSTER FLUTUANTE: LUPA ===== -->
+    <div id="float-cluster">
+        <div id="assistive-touch">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+        </div>
+    </div>
+
+    <!-- ===== OVERLAY DE BUSCA ===== -->
+    <div id="search-overlay">
+        <div class="search-inner">
+            <div class="search-input-wrapper">
+                <input type="text" id="filtroBusca" class="input-with-mic" placeholder="Buscar...">
+                <button class="btn-mic" id="btn-mic-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </button>
+                <span class="btn-limpar" data-limpar="filtroBusca" aria-label="Limpar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CABEÇALHO ===== -->
+    <div class="header-container">
+        <!-- HEADER: logo centralizado, btn-tema na direita -->
+        <div class="hdr-logo">
+            <button id="btn-titulo" class="btn-titulo" aria-label="StockFlow Pro">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" class="logo-icon" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#2979FF"/>
+                            <stop offset="100%" stop-color="#00E5FF"/>
+                        </linearGradient>
+                        <filter id="logoGlow">
+                            <feGaussianBlur stdDeviation="2" result="b"/>
+                            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
+                    </defs>
+                    <rect width="120" height="120" rx="26" fill="#0D1B2A"/>
+                    <rect x="0.5" y="0.5" width="119" height="119" rx="25.5" fill="none" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+                    <path d="M 82 28 C 82 28,88 28,88 38 C 88 50,72 52,60 52 C 48 52,32 54,32 66 C 32 78,38 82,50 82 C 58 82,88 82,88 82"
+                        fill="none" stroke="url(#logoGrad)" stroke-width="7" stroke-linecap="round" filter="url(#logoGlow)"/>
+                    <circle cx="88" cy="82" r="5.5" fill="#00E5FF" filter="url(#logoGlow)"/>
+                    <circle cx="82" cy="28" r="3.5" fill="#2979FF" opacity="0.85"/>
+                </svg>
+                <span class="logo-wordmark">StockFlow<span class="logo-pro">PRO</span></span>
+            </button>
+        </div>
+
+        <div class="hdr-sep" aria-hidden="true"></div>
+
+        <div class="hdr-btns">
+            <button id="btn-tema" class="btn-theme" title="Alternar tema" aria-label="Alternar tema">
+                <span class="btn-theme-icon"></span>
+                <span class="btn-theme-label">DARK</span>
+            </button>
+        </div>
+
+        <input type="file" id="bg-upload" accept="image/*" aria-hidden="true"
+               style="position:fixed;width:0;height:0;opacity:0;pointer-events:none">
+    </div>
+
+    <!-- ===== BARRA UTILITÁRIA ===== -->
+    <!-- Espaço independente abaixo do cabeçalho com botões de fundo, calendário e conta Firebase -->
+    <div class="hdr-utility-bar">
+        <!-- Botão: Alterar Fundo -->
+        <button id="btn-fundo" class="util-btn" title="Alterar fundo" aria-label="Alterar imagem de fundo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            </button>
+
+        <!-- Botão: Calendário / Histórico -->
+        <button id="btn-calendario" class="util-btn" title="Histórico" aria-label="Abrir calendário de histórico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            </button>
+
+        <!-- Botão: Conta Firebase (usuário) -->
+        <button id="btn-usuario" class="util-btn util-btn--user" style="display:none;" title="Perfil" aria-label="Perfil">
+            </button>
+    </div>
+
+    <!-- ===== MENU DE ABAS ===== -->
+    <!-- btn-nav-toggle: recolhe/expande o grid de abas -->
+    <button id="btn-nav-toggle" class="btn-nav-toggle" aria-label="Recolher menu" aria-expanded="true" title="Recolher menu de abas">
+        <svg class="toggle-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="18 15 12 9 6 15"/>
+        </svg>
+        <span class="toggle-label">menu</span>
+    </button>
+    <div id="nav-tabs-panel" class="nav-tabs">
+
+        <!-- ESTOQUE: prateleira com 3 planos — warehouse/shelf thin-line -->
+        <button class="nav-tab active" data-tab="estoque">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- caixa com topo e base -->
+                <rect x="3" y="7" width="18" height="13" rx="1.5"/>
+                <!-- divisória interna / prateleira -->
+                <line x1="3" y1="13" x2="21" y2="13"/>
+                <!-- puxador superior esquerdo -->
+                <line x1="8" y1="4" x2="8" y2="7"/>
+                <!-- puxador superior direito -->
+                <line x1="16" y1="4" x2="16" y2="7"/>
+                <!-- itens na prateleira superior: 2 barras -->
+                <line x1="7" y1="10.5" x2="11" y2="10.5"/>
+                <line x1="13" y1="10.5" x2="17" y2="10.5"/>
+                <!-- itens na prateleira inferior: 1 barra mais longa -->
+                <line x1="7" y1="16.5" x2="17" y2="16.5"/>
+            </svg>
+            <span class="tab-label">Estoque</span>
+        </button>
+
+        <!-- COMPRAS: sacola de compras thin-line -->
+        <button class="nav-tab" data-tab="compras">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- corpo da sacola -->
+                <path d="M4 7h16l-1.5 11a1.5 1.5 0 01-1.5 1.35H7a1.5 1.5 0 01-1.5-1.35L4 7z"/>
+                <!-- alça esquerda -->
+                <path d="M9 7V5a3 3 0 016 0v2"/>
+                <!-- detalhe: linha horizontal no meio da sacola -->
+                <line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            <span class="tab-label">Compras</span>
+        </button>
+
+        <!-- ADICIONAR: círculo com + fino, estilo thin-line -->
+        <button class="nav-tab" data-tab="adicionar">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9.5"/>
+                <line x1="12" y1="7.5" x2="12" y2="16.5"/>
+                <line x1="7.5" y1="12" x2="16.5" y2="12"/>
+            </svg>
+            <span class="tab-label">Adicionar</span>
+        </button>
+
+        <!-- LISTA FÁCIL: clipboard com linhas e check mark -->
+        <button class="nav-tab" data-tab="listafacil">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- prancheta -->
+                <rect x="4" y="4" width="16" height="17" rx="1.5"/>
+                <!-- topo com clipe -->
+                <path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/>
+                <!-- linha 1 com check -->
+                <polyline points="7.5,9.5 9,11 11,8.5"/>
+                <line x1="13" y1="9.5" x2="17.5" y2="9.5"/>
+                <!-- linha 2 com check -->
+                <polyline points="7.5,14 9,15.5 11,13"/>
+                <line x1="13" y1="14" x2="17.5" y2="14"/>
+                <!-- linha 3 sem check (pendente) -->
+                <line x1="7.5" y1="18.5" x2="17.5" y2="18.5"/>
+            </svg>
+            <span class="tab-label">Lista Fácil</span>
+        </button>
+
+        <!-- MASSA: fatia de pizza thin-line com toppings -->
+        <button class="nav-tab" data-tab="massa">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- fatia triangular -->
+                <path d="M12 2 L3 21 L21 21 Z"/>
+                <!-- crosta na base com leve curva -->
+                <path d="M4.5 21 Q12 18.5 19.5 21"/>
+                <!-- topping 1 -->
+                <circle cx="9.5" cy="15" r="1.1"/>
+                <!-- topping 2 -->
+                <circle cx="14.5" cy="14" r="1.1"/>
+                <!-- topping 3 menor no topo -->
+                <circle cx="12" cy="10" r="0.8"/>
+            </svg>
+            <span class="tab-label">Massa</span>
+        </button>
+
+        <!-- PRODUÇÃO: engrenagem + gráfico de barras thin-line -->
+        <button class="nav-tab" data-tab="producao">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- gráfico de barras (produção) -->
+                <line x1="3" y1="20" x2="21" y2="20"/>
+                <!-- barra 1 baixa -->
+                <rect x="4.5" y="15" width="3" height="5" rx="0.5"/>
+                <!-- barra 2 média -->
+                <rect x="10.5" y="11" width="3" height="9" rx="0.5"/>
+                <!-- barra 3 alta -->
+                <rect x="16.5" y="7" width="3" height="13" rx="0.5"/>
+                <!-- seta de tendência acima -->
+                <polyline points="5,13 11,9 17,5.5"/>
+                <polyline points="14.5,5 17,5.5 17,8"/>
+            </svg>
+            <span class="tab-label">Produção</span>
+        </button>
+
+        <!-- Ficha Técnica: documento com linha R$ -->
+        <button class="nav-tab" data-tab="fichatecnica">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+                <line x1="8" y1="15.5" x2="13" y2="15.5"/>
+                <line x1="15" y1="17.5" x2="17" y2="17.5"/>
+            </svg>
+            <span class="tab-label">Ficha Técnica</span>
+        </button>
+
+        <!-- GEMINI IA v10.1.0 — losango Gemini thin-line com gradiente -->
+        <button class="nav-tab" data-tab="gemini">
+            <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <defs>
+                    <linearGradient id="navGemGrad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%"   stop-color="#4285F4"/>
+                        <stop offset="50%"  stop-color="#9B72FF"/>
+                        <stop offset="100%" stop-color="#00BCD4"/>
+                    </linearGradient>
+                </defs>
+                <path d="M12 2C12 2 14.8 8.5 19.5 12C14.8 15.5 12 22 12 22C12 22 9.2 15.5 4.5 12C9.2 8.5 12 2 12 2Z"
+                      stroke="url(#navGemGrad)" stroke-width="1.5"
+                      stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <span class="tab-label">IA</span>
+        </button>
+
+    </div>
+
+    <!-- ===== SEÇÃO: ESTOQUE ===== -->
+    <section id="estoque-section" class="tab-content active">
+
+        <!-- Filtro de itens — desacoplado da busca, sempre visível -->
+        <div class="filtro-itens-bar">
+            <svg class="filtro-itens-icon" width="15" height="15" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            <label class="filtro-itens-label" for="filtroSelect">Item</label>
+            <select id="filtroSelect" class="filtro-itens-select">
+                <option value="">Todos</option>
+            </select>
+        </div>
+
+        <div class="table-wrapper">
+            <div id="swipe-bg"></div>
+            <table id="tabela-estoque">
+                <thead>
+                    <tr>
+                        <th class="col-check"><input type="checkbox" id="check-todos"></th>
+                        <th class="col-desc">Descrição</th>
+                        <th class="col-qtd">Qtd</th>
+                        <th class="col-unid">Unid</th>
+                    </tr>
+                </thead>
+                <tbody id="lista-itens-container"></tbody>
+            </table>
+        </div>
+        <div class="share-group share-group--spaced">
+            <button class="btn-zap" id="btn-compartilhar-estoque">Enviar Estoque</button>
+            <button class="btn-zap" id="btn-copiar-estoque">Copiar Estoque</button>
+        </div>
+        <button id="btn-novo-dia">INICIAR NOVO DIA (ZERAR QTD)</button>
+        <button id="btn-exportar">SALVAR LISTA NO CELULAR</button>
+        <button id="btn-importar">CARREGAR LISTA DO CELULAR</button>
+        <button id="btn-reset">RESTAURAR LISTA PADRÃO</button>
+        <input type="file" id="input-arquivo" accept=".json" style="display:none;">
+    </section>
+
+    <!-- ===== SEÇÃO: COMPRAS ===== -->
+    <section id="compras-section" class="tab-content">
+        <div id="area-compras">
+            <h2 id="titulo-compras">LISTA DE COMPRAS</h2>
+            <ul id="lista-compras-visual"></ul>
+            <div class="share-group">
+                <button class="btn-compra" id="btn-compartilhar-compras">WhatsApp Compras</button>
+                <button class="btn-compra" id="btn-copiar-compras">Copiar Compras</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SEÇÃO: ADICIONAR ===== -->
+    <section id="adicionar-section" class="tab-content">
+        <div class="card">
+            <div class="input-group">
+                <div class="input-relative">
+                    <label>Produto</label>
+                    <input type="text" id="novoProduto" class="input-with-mic" placeholder="Item">
+                    <button class="btn-mic" id="btn-mic-prod">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                    <span class="btn-limpar" data-limpar="novoProduto" aria-label="Limpar"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+                </div>
+                <div class="input-relative input-com-calc">
+                    <label>Qtd</label>
+                    <input type="text" id="novoQtd" class="input-qtd-manual" placeholder="Qtd" readonly>
+                </div>
+                <div>
+                    <label>Unid</label>
+                    <select id="novoUnidade">
+                        <option value="kg">kg</option>
+                        <option value="g">g</option>
+                        <option value="uni">uni</option>
+                        <option value="pct">pct</option>
+                        <option value="cx">cx</option>
+                        <option value="bld">bld</option>
+                        <option value="crt">crt</option>
+                    </select>
+                </div>
+                <div class="action-group">
+                    <button id="add-btn" class="btn-half">Adicionar</button>
+                    <button id="add-star-btn" class="btn-half" title="Adicionar item e fixar na lista padrão">Fixar</button>
+                    <button id="remove-star-btn" class="btn-half" title="Remover item da lista padrão">Apagar</button>
+                </div>
+            </div>
+            <div id="status-save">Salvo.</div>
+        </div>
+    </section>
+
+    <!-- ===== SEÇÃO: LISTA FÁCIL ===== -->
+    <section id="listafacil-section" class="tab-content">
+
+        <div class="lf-gauge-section">
+            <div class="lf-gauge-title">Controle de Orçamento</div>
+            <div id="lf-gaugeRing"></div>
+            <div class="lf-gauge-numbers">
+                <div class="lf-gauge-num">
+                    <span class="lf-gauge-num-label">Orçado</span>
+                    <input type="text" id="lf-budgetInlineInput" inputmode="decimal"
+                           value="3.200,00" aria-label="Orçamento — toque para editar">
+                </div>
+                <div class="lf-gauge-num">
+                    <span class="lf-gauge-num-label">Gasto</span>
+                    <span class="lf-gauge-num-value" id="lf-gaugeGasto">R$ 0,00</span>
+                </div>
+                <div class="lf-gauge-num">
+                    <span class="lf-gauge-num-label">Saldo</span>
+                    <span class="lf-gauge-num-value saldo-ok" id="lf-gaugeSaldo">R$ 3.200,00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel legacy oculto (compatibilidade JS) -->
+        <div class="lf-totals-panel" style="display:none">
+            <div class="lf-total-card"><div class="lf-total-label">Orçamento</div>
+                <div class="lf-total-value"><input type="text" id="lf-budgetInput" value="3.200,00"></div></div>
+            <div class="lf-total-card"><div class="lf-total-label">Gasto</div>
+                <div class="lf-total-value" id="lf-totalGastoDisplay">R$ 0,00</div></div>
+            <div class="lf-total-card"><div class="lf-total-label">Saldo</div>
+                <div class="lf-total-value" id="lf-diferencaDisplay">R$ 3.200,00</div></div>
+        </div>
+
+        <div class="lf-tab-bar">
+            <button class="lf-tab-btn active" data-lf-tab="lista">Lista</button>
+            <button class="lf-tab-btn" data-lf-tab="comparador">Comparador</button>
+        </div>
+
+        <div id="lf-tab-lista" class="lf-tab-content active">
+            <div class="lf-global-actions">
+                <button class="lf-global-btn lf-btn-preco" id="lf-zerarPrecosBtn">Zerar Preços</button>
+                <button class="lf-global-btn lf-btn-qtd"   id="lf-zerarQuantidadesBtn">Zerar Qtd</button>
+                <button class="lf-global-btn lf-btn-item"  id="lf-zerarItensBtn">Zerar Itens</button>
+            </div>
+            <div class="lf-table-wrapper" id="lf-tableWrapper">
+                <div id="lf-swipe-bg"></div>
+                <table id="lf-comprasTable">
+                    <tbody id="lf-tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <div id="lf-tab-comparador" class="lf-tab-content">
+            <div class="lf-comparador-container">
+                <div class="lf-comparador-title">Comparar preços por unidade</div>
+                <div class="lf-produto-card">
+                    <div class="lf-product-header">Produto 1</div>
+                    <div class="lf-linha-input">
+                        <div class="lf-col-input"><label>Preço (R$)</label><input type="text" class="lf-preco-input" id="lf-comp_p1" placeholder="0,00" readonly></div>
+                        <div class="lf-col-input"><label>Quantidade</label><input type="text" inputmode="decimal" id="lf-comp_q1" placeholder="0"></div>
+                    </div>
+                    <div class="lf-linha-input">
+                        <div class="lf-col-input"><label>Unidade</label>
+                            <select id="lf-comp_u1">
+                                <option value="kg">kg</option><option value="g">g</option>
+                                <option value="l">L</option><option value="ml">ml</option><option value="un">un</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="lf-produto-card">
+                    <div class="lf-product-header">Produto 2</div>
+                    <div class="lf-linha-input">
+                        <div class="lf-col-input"><label>Preço (R$)</label><input type="text" class="lf-preco-input" id="lf-comp_p2" placeholder="0,00" readonly></div>
+                        <div class="lf-col-input"><label>Quantidade</label><input type="text" inputmode="decimal" id="lf-comp_q2" placeholder="0"></div>
+                    </div>
+                    <div class="lf-linha-input">
+                        <div class="lf-col-input"><label>Unidade</label>
+                            <select id="lf-comp_u2">
+                                <option value="kg">kg</option><option value="g">g</option>
+                                <option value="l">L</option><option value="ml">ml</option><option value="un">un</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button class="lf-btn-calcular" id="lf-btnComparar">Comparar</button>
+                <div id="lf-comparadorResultado" style="display:none;"></div>
+            </div>
+        </div>
+
+        <button class="lf-share-btn" id="lf-shareBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Compartilhar Lista
+        </button>
+
+        <div class="lf-footer-totals">
+            <div class="lf-footer-item">
+                <span class="lf-footer-label">Orçado</span>
+                <span class="lf-footer-number" id="lf-footerBudget">R$ 3.200,00</span>
+            </div>
+            <div class="lf-footer-item">
+                <span class="lf-footer-label">Gasto</span>
+                <span class="lf-footer-number" id="lf-footerGasto">R$ 0,00</span>
+            </div>
+            <div class="lf-footer-item">
+                <span class="lf-footer-label">Saldo</span>
+                <span class="lf-footer-number" id="lf-footerSaldo">R$ 3.200,00</span>
+            </div>
+        </div>
+
+        <div class="lf-version-link" id="lf-showChangelog">
+            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> <span id="lf-versaoTitulo">v2.6.0</span> · Novidades da Lista Fácil
+        </div>
+    </section>
+
+    <!-- ===== BOTÕES FLUTUANTES ===== -->
+    <div class="nav-float">
+        <button class="btn-nav" id="btn-scroll-top" aria-label="Topo"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18,15 12,9 6,15"/></svg></button>
+        <button class="btn-nav" id="btn-scroll-bottom" aria-label="Fim"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6,9 12,15 18,9"/></svg></button>
+    </div>
+
+
+    <!-- ===== MODAL: ENTRADA DE TEXTO — MASSA ===== -->
+    <div id="massa-input-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span class="modal-header-title" id="massa-modal-title">Informação</span>
+                <button id="massa-modal-close" class="fechar-modal-icon" aria-label="Fechar">
+                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="massa-modal-body"></div>
+            <div class="modal-buttons">
+                <button id="massa-modal-ok" class="modal-btn-confirmar sucesso">Confirmar</button>
+                <button id="massa-modal-cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SEÇÃO: MASSA DE PIZZA ===== -->
+    <!-- conteúdo renderizado dinamicamente por massa.js -->
+    <section id="massa-section" class="tab-content">
+        <div id="massa-container"></div>
+    </section>
+
+
+    <!-- BUG FIX #9: <section id="producao-section"> estava declarada APÓS as tags <script>.
+         Embora DOMContentLoaded proteja a maioria dos acessos, colocar sections após scripts
+         é má prática e pode causar problemas de ordem de renderização e layout flash.
+         Movida para antes dos scripts, junto com as demais sections de conteúdo. -->
+    <section id="producao-section" class="tab-content">
+        <!-- Conteúdo gerado dinamicamente por producao.js -->
+    </section>
+
+    <!-- ===== SEÇÃO: FICHA TÉCNICA ===== -->
+    <!-- BUG FIX: section usa display:flex (via patch CSS) para fill-available height.
+         O iframe não tem src= aqui — é injetado por navegacao.js no primeiro clique
+         (lazy-load) para não bloquear o carregamento inicial do StockFlow.
+         scrolling="yes" removido: deprecated no HTML5; o iframe usa overflow:auto via CSS. -->
+    <section id="fichatecnica-section" class="tab-content">
+        <div class="ft-embed-container">
+            <iframe
+                id="ft-iframe"
+                title="Ficha Técnica Pro"
+                frameborder="0"
+            ></iframe>
+        </div>
+    </section>
+
+    <!-- ===== SEÇÃO: GEMINI IA v10.1.0 ===== -->
+    <!-- Renderizada e gerenciada inteiramente por ia.js.
+         A section é um mount point vazio — o módulo injeta o DOM internamente.
+         Não contém estado de sessão: layout é re-criado a cada iniciarGemini(). -->
+    <section id="gemini-section" class="tab-content"></section>
+
+    <script type="module" src="store.js"></script>
+    <script type="module" src="main.js"></script>
+    <div id="versao-badge-fixed" class="versao-badge-fixed">v9.7.5</div>
+</body>
+</html>

@@ -1,0 +1,838 @@
+/* ============================================================================
+   StockFlow Pro — Patch v9.7.6
+   Bug Fixes + Apple Store Premium Polish
+   Carregado APÓS apple-overrides.css — sobrescreve bugs sem tocar nos
+   arquivos originais.
+   ============================================================================
+
+   BUGS CORRIGIDOS
+   ───────────────
+   BUG #1  #modal-btn-confirm: ID selector sobrescreve sistema de classes
+   BUG #2  Select arrow: cor hardcoded invisível no tema Arctic (light)
+   BUG #3  @keyframes fadeToast: sem cláusula 'from' — inconsistência cross-browser
+   BUG #4  color-mix(): sem fallback para Safari < 16.2
+   BUG #5  .lf-version-link: display:inline-flex em div não centraliza
+   BUG #6  .col-desc muito estreita em telas <340px (col-qtd+col-unid fixas)
+   BUG #7  @keyframes tabFadeIn duplicado — style.css e apple-overrides.css
+            definem o mesmo keyframe; apenas o de apple-overrides sobrevive.
+            Padronizado aqui com um único @layer-safe override.
+   BUG #8  body.modal-open {position:fixed} sem top:0 provoca scroll-jump iOS
+
+   MELHORIAS PREMIUM
+   ─────────────────
+   PRE #1  .versao-badge — extrai inline styles do HTML para classe CSS
+   PRE #2  Header: safe-area-inset-top para Dynamic Island / notch
+   PRE #3  Modais: animação spring de entrada (scale + translateY)
+   PRE #4  Toast: animação com spring e 'from' explícito
+   PRE #5  Tabs: gradiente sutil no pill ativo; haptic scale preciso
+   PRE #6  Tabela: row fade-in escalonado ao renderizar
+   PRE #7  Inputs: inner-glow no foco, ring mais preciso
+   PRE #8  Botões: sombra de pressão interna no :active (depth)
+   PRE #9  Categoria header: gradiente accent left-bar
+   PRE #10 FAB + flutuantes: sombras mais ricas; glassmorphism melhorado
+   PRE #11 .lf-footer-label: fallback estático + color-mix progressivo
+   PRE #12 Scroll bar global: refinada, quase invisível
+   PRE #13 Select: chevron adaptado por tema; cursor pointer
+   PRE #14 Checkbox: border-radius 6px + transition accent-color
+   PRE #15 Modal-overlay: backdrop saturate() para maior riqueza visual
+   ============================================================================ */
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #1 — #modal-btn-confirm ID vence sobre .modal-btn-confirmar.sucesso /
+            .modal-btn-confirmar.alerta porque especificidade ID > class.
+            confirm.js seta btnConfirm.className = 'modal-btn-confirmar ' + tipo
+            mas o ID sempre volta ao vermelho.
+   FIX: Reset background/color/box-shadow do ID; deixar as classes agirem.
+   ════════════════════════════════════════════════════════════════════════════ */
+#modal-btn-confirm {
+  background: unset;
+  color: unset;
+  box-shadow: unset;
+}
+
+/* Agora as classes de confirm.js funcionam corretamente: */
+#modal-btn-confirm.perigo  { background: var(--btn-red);        color: white; box-shadow: 0 4px 18px rgba(255,69,58,0.30); }
+#modal-btn-confirm.sucesso { background: var(--btn-green);      color: #000;  box-shadow: 0 4px 18px rgba(48,209,88,0.28); }
+#modal-btn-confirm.alerta  { background: var(--accent-primary); color: white; box-shadow: 0 4px 18px var(--accent-glow); }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #2 — Select chevron: fill='%23C7C7CC' (cinza claro) é quase invisível
+            sobre --surface-3: #E5E5EA do tema Arctic.
+   FIX: Override com seta escura (%233C3C43 = --text-soft do light mode).
+   ════════════════════════════════════════════════════════════════════════════ */
+body.theme-arctic select,
+body.light-mode   select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233C3C43'%3E%3Cpath d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+}
+body.theme-arctic .filtro-itens-select,
+body.light-mode   .filtro-itens-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233C3C43'%3E%3Cpath d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+}
+/* Forest theme: seta verde para combinar com accent */
+body.theme-forest select,
+body.theme-forest .filtro-itens-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2330D158'%3E%3Cpath d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #3 — @keyframes fadeToast sem 'from' — navegadores diferem na
+            interpolação do estado inicial; Safari iOS pode mostrar flash.
+   FIX: 'from' explícito com transform: translateY(0).
+   ════════════════════════════════════════════════════════════════════════════ */
+@keyframes fadeToast {
+  from { opacity: 0;  transform: translateY(0);     }
+  to   { opacity: 1;  transform: translateY(-14px); }
+}
+/* Desaparecimento suave: aplicado via JS (style.opacity='0') — adiciona
+   translateY extra para saída elegante: */
+.toast[style*="opacity: 0"] {
+  transform: translateY(-20px) !important;
+  transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out) !important;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #4 — color-mix() sem fallback causa cores inválidas no Safari < 16.2.
+   FIX: Valores estáticos como fallback; color-mix em @supports.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Fallback estático (iOS 15 / Safari 15 e anteriores) */
+.lf-footer-item:nth-child(1) .lf-footer-label { color: #4A88CC; }
+.lf-footer-item:nth-child(2) .lf-footer-label { color: #C09060; }
+.lf-footer-item:nth-child(3) .lf-footer-label { color: #45A868; }
+body.theme-arctic .lf-footer-item:nth-child(1) .lf-footer-label { color: #5588BB; }
+body.theme-arctic .lf-footer-item:nth-child(2) .lf-footer-label { color: #A07030; }
+body.theme-arctic .lf-footer-item:nth-child(3) .lf-footer-label { color: #288040; }
+
+/* Progressive enhancement — apenas para navegadores com suporte a color-mix */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .lf-footer-item:nth-child(1) .lf-footer-label {
+    color: color-mix(in srgb, var(--accent-primary) 55%, var(--text-soft));
+  }
+  .lf-footer-item:nth-child(2) .lf-footer-label {
+    color: color-mix(in srgb, var(--btn-star) 55%, var(--text-soft));
+  }
+  .lf-footer-item:nth-child(3) .lf-footer-label {
+    color: color-mix(in srgb, var(--gauge-green) 55%, var(--text-soft));
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #5 — .lf-version-link: display:inline-flex em <div> não centraliza.
+            O elemento flutua à esquerda sem expandir ao container.
+   FIX: flex container externo via width:100% + justify-content.
+   ════════════════════════════════════════════════════════════════════════════ */
+.lf-version-link {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #6 — .col-qtd (90px) + .col-unid (80px) + .col-check (44px) = 214px.
+            Em iPhone SE (320px) — 32px padding = 288px útil → col-desc: 74px.
+            Nome de produto com 10+ chars é truncado ou quebra layout.
+   FIX: Reduz col-qtd e col-unid levemente; deixa mais espaço ao nome.
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+  .col-qtd  { width: 76px; }
+  .col-unid { width: 68px; }
+  .col-check { width: 38px; }
+  .input-qtd-tabela { font-size: 14px; padding: 8px 4px; }
+  .select-tabela    { font-size: 14px; padding: 8px 2px; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #7 — @keyframes tabFadeIn declarado em style.css E apple-overrides.css.
+            O último carregado vence — comportamento depende da ordem de <link>.
+   FIX: Um único override aqui canoniza a animação.
+   ════════════════════════════════════════════════════════════════════════════ */
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BUG #8 — body.modal-open { position: fixed } sem top: 0 provoca scroll
+            para o topo ao abrir modal no Safari iOS.
+            (O JS em main.js deve salvar scrollY e aplicar top:-scrollY; este
+            CSS garante ao menos que o salto seja mínimo com scroll-y: auto)
+   FIX: Adiciona scroll-behavior: auto para prevenir scroll animado ao aplicar.
+   ════════════════════════════════════════════════════════════════════════════ */
+body.modal-open {
+  scroll-behavior: auto !important;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #1 — .versao-badge: inline styles removidos do HTML → classe CSS
+   ════════════════════════════════════════════════════════════════════════════ */
+.versao-badge {
+  font-size: 0.44em;
+  font-weight: 500;
+  opacity: 0.55;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+  font-feature-settings: "tnum";
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #2 — Header: safe-area-inset-top para Dynamic Island e notch.
+            body.padding não cobre o safe area do status bar no header fixo.
+   ════════════════════════════════════════════════════════════════════════════ */
+.header-container {
+  margin-top: max(6px, env(safe-area-inset-top, 0px));
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #3 — Modais: animação de entrada spring (scale + translateY)
+            Muito mais premium que o simples "aparecer".
+   ════════════════════════════════════════════════════════════════════════════ */
+@keyframes modalSpringIn {
+  0%   { opacity: 0; transform: scale(0.90) translateY(24px); }
+  60%  { opacity: 1; transform: scale(1.02) translateY(-3px); }
+  100% { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+.modal-overlay .modal-box,
+.modal-overlay .calc-box {
+  animation: modalSpringIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #4 — Tabs: pill ativo com gradiente de profundidade real; scale preciso
+   ════════════════════════════════════════════════════════════════════════════ */
+.nav-tab.active {
+  background: linear-gradient(
+    160deg,
+    var(--accent-primary) 0%,
+    rgba(0, 0, 0, 0.12) 100%
+  ), var(--accent-primary);
+}
+body.theme-arctic .nav-tab.active,
+body.light-mode   .nav-tab.active {
+  background: linear-gradient(
+    160deg,
+    var(--accent-primary) 0%,
+    rgba(0, 0, 0, 0.08) 100%
+  ), var(--accent-primary);
+}
+.nav-tab:active { transform: scale(0.93); }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #5 — Inputs: ring de foco mais definido + inner-glow ativo
+   ════════════════════════════════════════════════════════════════════════════ */
+input[type='text']:focus,
+input[type='number']:focus {
+  box-shadow:
+    0 0 0 3.5px var(--accent-glow),
+    0 0 0 1px   var(--accent-primary),
+    var(--inner-glow-active);
+}
+.input-qtd-tabela:focus {
+  box-shadow:
+    0 0 0 3px var(--accent-glow),
+    0 0 0 1px var(--accent-primary),
+    var(--inner-glow-active);
+}
+.nome-prod:focus {
+  box-shadow:
+    0 0 0 3px var(--accent-glow),
+    var(--inner-glow-active);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #6 — Botões: sombra interna no :active para feedback de profundidade
+            Padrão iOS: botão "afunda" suavemente ao pressionar.
+   ════════════════════════════════════════════════════════════════════════════ */
+button:active:not(.calc-btn):not(.nav-tab):not(.lf-tab-btn) {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25) inset, var(--shadow-btn);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #7 — Categoria header: barra colorida à esquerda + gradient sutil
+   ════════════════════════════════════════════════════════════════════════════ */
+.categoria-header {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    transparent 100%
+  ) !important;
+  border-left: 3px solid currentColor;
+  letter-spacing: 1.1px;
+}
+body.theme-arctic .categoria-header,
+body.light-mode   .categoria-header {
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.03) 0%,
+    transparent 100%
+  ) !important;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #8 — FAB Lista Fácil: sombra triplicada para profundidade iOS
+   ════════════════════════════════════════════════════════════════════════════ */
+#lf-fabAddItem {
+  box-shadow:
+    0 10px 40px var(--accent-glow),
+    0 4px 16px rgba(0,0,0,0.50),
+    0 1px 0 rgba(255,255,255,0.32) inset !important;
+  transition: transform 0.22s var(--spring), box-shadow 0.22s !important;
+}
+#lf-fabAddItem:active {
+  transform: scale(0.90) !important;
+  box-shadow:
+    0 4px 16px var(--accent-glow),
+    0 2px 6px rgba(0,0,0,0.40) !important;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #9 — Modal overlay: backdrop saturate para visual mais rico
+   ════════════════════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #10 — Checkbox: transição e arredondamento refinados
+   ════════════════════════════════════════════════════════════════════════════ */
+input[type='checkbox'] {
+  transition: transform 0.12s var(--spring);
+  cursor: pointer;
+}
+input[type='checkbox']:active {
+  transform: scale(0.88);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #11 — Select: cursor pointer explícito (melhora percepção de toque)
+   ════════════════════════════════════════════════════════════════════════════ */
+select { cursor: pointer; }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #12 — Tabela: linha marcada mais elegante (strikethrough com gradiente)
+   ════════════════════════════════════════════════════════════════════════════ */
+.linha-marcada .nome-prod {
+  color: var(--text-muted);
+  opacity: 0.6;
+  /* Efeito de risco mais premium que text-decoration simples */
+  text-decoration: line-through;
+  text-decoration-color: var(--text-muted);
+  text-decoration-thickness: 1.5px;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #13 — .btn-zap e .btn-compra: hover mais expressivo
+   ════════════════════════════════════════════════════════════════════════════ */
+.btn-zap:hover:not(:active) {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+.btn-compra:hover:not(:active) {
+  box-shadow: 0 6px 24px var(--accent-glow), var(--shadow-btn);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #14 — Header Midnight: borda gradiente mais visível
+   ════════════════════════════════════════════════════════════════════════════ */
+body.theme-midnight .header-container::after {
+  background: linear-gradient(
+    135deg,
+    rgba(10,132,255,0.65),
+    rgba(191,90,242,0.35),
+    rgba(48,209,88,0.12),
+    rgba(255,255,255,0.05)
+  );
+  border-radius: 27px;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #15 — Scrollbar: mais refinada, praticamente invisível
+   ════════════════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 2px; height: 2px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10);
+  border-radius: 2px;
+}
+body.theme-arctic ::-webkit-scrollbar-thumb,
+body.light-mode   ::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.09);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #16 — #status-save: cor de sucesso para reforçar feedback visual
+   ════════════════════════════════════════════════════════════════════════════ */
+#status-save {
+  color: var(--btn-green);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #17 — Gauge ring: drop-shadow adaptado por tema
+   ════════════════════════════════════════════════════════════════════════════ */
+body.theme-forest #lf-gaugeRing {
+  filter: drop-shadow(0 0 14px rgba(48,209,88,0.35));
+}
+body.theme-arctic #lf-gaugeRing,
+body.light-mode   #lf-gaugeRing {
+  filter: drop-shadow(0 0 10px rgba(0,122,255,0.22));
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #18 — Botões de ação do Estoque: hierarquia visual mais Apple HIG
+            btn-novo-dia (primário) → destaque máximo
+            btn-exportar (secundário) → azul accent
+            btn-importar (terciário) → roxo
+            btn-reset (destrutivo) → apenas borda, sem preenchimento
+   ════════════════════════════════════════════════════════════════════════════ */
+#btn-novo-dia {
+  background: linear-gradient(160deg, var(--btn-green), #25B34D);
+  letter-spacing: 0.4px;
+}
+#btn-exportar {
+  background: linear-gradient(160deg, var(--accent-primary), #0066DD);
+}
+body.theme-forest #btn-novo-dia {
+  background: linear-gradient(160deg, var(--btn-green), #20A040);
+}
+body.theme-forest #btn-exportar {
+  background: linear-gradient(160deg, var(--accent-primary), #20B040);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #19 — Toast: pill shape mais refinado com glassmorphism premium
+   ════════════════════════════════════════════════════════════════════════════ */
+.toast {
+  background: color-mix(in srgb, var(--surface-2) 92%, var(--accent-primary) 8%) !important;
+  border: 1px solid var(--border-strong) !important;
+  letter-spacing: -0.1px;
+}
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .toast { background: var(--surface-2) !important; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #20 — nav-tab label: tamanho mínimo 10px (HIG accessibility)
+            9px é abaixo do mínimo recomendado por Apple para texto de UI.
+   ════════════════════════════════════════════════════════════════════════════ */
+.tab-label { font-size: 10px; }
+.nav-tab   { font-size: 10px; }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #21 — Nav Tabs: ícones SVG premium — otimização visual v9.7.6
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Estrutura vertical: ícone em cima, label embaixo */
+.nav-tab {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 9px 4px 7px;
+  min-height: 56px;
+}
+
+/* Ícone SVG — tamanho e transição */
+.tab-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: block;
+  opacity: 0.55;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+/* Ativo e hover */
+.nav-tab.active .tab-icon    { opacity: 1; }
+.nav-tab:hover .tab-icon     { opacity: 0.85; }
+
+/* Label com kerning refinado */
+.tab-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Ativo: label fica branco e bold, ícone fica branco */
+.nav-tab.active .tab-label { font-weight: 700; }
+
+/* Micro-animação: ícone sobe levemente ao ativar */
+.nav-tab.active .tab-icon {
+  transform: translateY(-1px) scale(1.05);
+}
+
+/* Tab Adicionar: ícone em verde accent (destaque especial) */
+.nav-tab:not(.active)[data-tab="adicionar"] .tab-icon {
+  color: var(--accent-primary, #30D158);
+  opacity: 0.80;
+}
+.nav-tab:not(.active)[data-tab="adicionar"] .tab-label {
+  color: var(--accent-primary, #30D158);
+  opacity: 0.80;
+}
+
+/* Theme: Arctic / Light mode — ícone com cor de contraste */
+body.theme-arctic .nav-tab:not(.active) .tab-icon,
+body.light-mode   .nav-tab:not(.active) .tab-icon {
+  opacity: 0.45;
+}
+body.theme-arctic .nav-tab.active .tab-icon,
+body.light-mode   .nav-tab.active .tab-icon {
+  opacity: 1;
+}
+
+/* Hover state: sutíl background highlight */
+.nav-tab:not(.active):hover {
+  background: rgba(255,255,255,0.07);
+}
+body.theme-arctic .nav-tab:not(.active):hover,
+body.light-mode   .nav-tab:not(.active):hover {
+  background: rgba(0,0,0,0.06);
+}
+
+/* Press: escala */
+.nav-tab:active .tab-icon {
+  transform: scale(0.92);
+  transition-duration: 0.08s;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #22 — Nav Tabs: thin-line icon style refinement v9.7.6
+   Calibrado para o estilo thin-outline da referência: traço 1.4px,
+   ícone 24×24, opacidade sutil nos inativos, transição suave.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.tab-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: block;
+  opacity: 0.52;
+  transition: opacity 0.20s ease, transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* Ativo: opacidade total + micro-spring */
+.nav-tab.active .tab-icon {
+  opacity: 1;
+  transform: translateY(-1px) scale(1.06);
+}
+
+/* Hover: levemente mais visível */
+.nav-tab:hover:not(.active) .tab-icon {
+  opacity: 0.78;
+  transform: translateY(-0.5px);
+}
+
+/* Press: contrai */
+.nav-tab:active .tab-icon {
+  transform: scale(0.90) !important;
+  transition-duration: 0.07s;
+}
+
+/* Tabs inativos no tema claro precisam de ícone mais escuro */
+body.theme-arctic .tab-icon,
+body.light-mode   .tab-icon {
+  opacity: 0.40;
+}
+body.theme-arctic .nav-tab.active .tab-icon,
+body.light-mode   .nav-tab.active .tab-icon {
+  opacity: 1;
+}
+
+/* Label abaixo do ícone */
+.nav-tab {
+  gap: 3px;
+  padding: 9px 3px 7px;
+  min-height: 54px;
+}
+.tab-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0px;
+}
+.nav-tab.active .tab-label {
+  font-weight: 700;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRE #23 — FICHA TÉCNICA: nova aba + grid 7 botões + iframe embed
+   v9.7.6 — integração standalone (funções separadas até segunda ordem)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Grid: 6 → 7 abas ────────────────────────────────────────────────────── */
+/* Layout 4+3: primeira fila tem 4 abas, segunda tem 3 centralizadas */
+.nav-tabs {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* BUG FIX #3: nth-child(5) e nth-child(6) com grid-column explícito eram
+ * desnecessários — o grid auto-placement já os posiciona nas colunas corretas.
+ * Regras removidas para evitar conflito com o reset do @media 320px e
+ * com browsers que calculam posição de grid de forma diferente ao encontrar
+ * regras explícitas parciais.
+ * Apenas nth-child(7) precisa de regra explícita (span 2 colunas). */
+.nav-tab:nth-child(7) {
+  grid-column: 3 / span 2;
+}
+.nav-tab:nth-child(7) .tab-label { font-size: 9px; }
+.nav-tab:nth-child(7) .tab-icon  { width: 22px; height: 22px; }
+
+/* ── Iframe container ─────────────────────────────────────────────────────── */
+/*
+ * BUG FIX #1: overflow:hidden no container bloqueava o scroll interno do
+ * iframe no Safari iOS. O iframe tem seu próprio viewport e não depende do
+ * overflow do pai para scrollar — o pai só precisa não cortar o iframe.
+ * Solução: overflow:visible (default) no container; o iframe controla seu scroll.
+ *
+ * BUG FIX #2: height:calc(100dvh - 192px) era frágil — a soma 56+70+66=192px
+ * assumia alturas fixas que variam entre temas, dispositivos e Dynamic Island.
+ * Solução: layout flex na section pai; o iframe usa flex:1 para ocupar o
+ * espaço restante sem cálculo manual.
+ */
+#fichatecnica-section {
+  /* Flex column: ocupa o espaço disponível na viewport sem cálculo manual */
+  display: none;           /* mantido oculto quando inativo */
+  flex-direction: column;
+  /* height = viewport menos o que o StockFlow usa acima */
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  max-height: 100dvh;
+  overflow: hidden;        /* o overflow fica na section, não no container */
+}
+/* Quando a aba está ativa, ativa o flex */
+#fichatecnica-section.active {
+  display: flex !important;
+}
+
+.ft-embed-container {
+  /* BUG FIX #2: flex:1 ocupa todo espaço vertical restante automaticamente */
+  flex: 1;
+  min-height: 0;           /* permite shrink abaixo do content-size */
+  width: 100%;
+  position: relative;
+  /* BUG FIX #1: SEM overflow:hidden — deixa o iframe scrollar livremente */
+  overflow: visible;
+}
+
+#ft-iframe {
+  position: absolute;
+  inset: 0;                /* top:0 right:0 bottom:0 left:0 */
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  background: transparent;
+  /* Evita o flash branco antes do iframe carregar (Safari iOS) */
+  color-scheme: dark;
+  /* Garante que o iframe pode scrollar internamente em todos os browsers */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;   /* iOS momentum scroll */
+}
+
+/* (fichatecnica-section layout movido para o bloco .ft-embed-container acima) */
+
+/* ── Badge visual na aba — indicador de módulo externo ────────────────────── */
+.nav-tab[data-tab="fichatecnica"] {
+  position: relative;
+}
+.nav-tab[data-tab="fichatecnica"]::after {
+  content: 'PRO';
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  background: var(--accent-primary, #30D158);
+  color: #000;
+  padding: 1px 3px;
+  border-radius: 3px;
+  opacity: 0.85;
+  line-height: 1.3;
+}
+.nav-tab[data-tab="fichatecnica"].active::after {
+  background: rgba(255,255,255,0.9);
+  color: #000;
+}
+
+/* Temas light/arctic: badge escuro */
+body.theme-arctic .nav-tab[data-tab="fichatecnica"]::after,
+body.light-mode   .nav-tab[data-tab="fichatecnica"]::after {
+  background: var(--accent-primary, #007AFF);
+  color: #fff;
+}
+
+/* ── Tema Dark: iframe tem fundo consistente enquanto carrega ─────────────── */
+#fichatecnica-section .ft-embed-container {
+  background: var(--bg-primary, #000);
+}
+
+/* ── Responsive: em telas muito pequenas, grid vira 3 colunas com scroll ─── */
+@media (max-width: 320px) {
+  .nav-tabs {
+    grid-template-columns: repeat(3, 1fr);
+    overflow-x: auto;
+  }
+  /* BUG FIX #3: apenas nth-child(7) precisa de reset aqui, pois é o único
+     com grid-column explícito no CSS principal. Em 3 colunas, o auto-placement
+     distribui todas as abas corretamente sem override manual. */
+  .nav-tab:nth-child(7) {
+    grid-column: auto;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FEATURE — Menu de abas retrátil  v9.7.7
+   Botão pill abaixo do header que recolhe/expande o #nav-tabs-panel.
+   Estado persistido em localStorage ('navCollapsed').
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Botão toggle ──────────────────────────────────────────────────────────── */
+.btn-nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  /* pill bem fino — não rouba espaço */
+  padding: 5px 14px;
+  margin: 0 0 5px;
+  border: none;
+  border-radius: var(--radius-full, 999px);
+  background: transparent;
+  color: var(--text-muted, #8E8E93);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color 0.18s, background 0.18s;
+  /* Linha separadora sutil */
+  border-top: 1px solid var(--border, rgba(255,255,255,0.10));
+}
+.btn-nav-toggle:hover {
+  color: var(--text-soft, #C7C7CC);
+  background: var(--surface-2, rgba(255,255,255,0.06));
+}
+.btn-nav-toggle:active { transform: scale(0.97); }
+
+/* Rótulo "menu" / "abas" */
+.toggle-label { line-height: 1; }
+
+/* Seta: aponta PARA CIMA quando expandido → recolher */
+.toggle-chevron {
+  transition: transform 0.30s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+}
+
+/* Quando o painel está recolhido: seta aponta para BAIXO → expandir */
+#nav-tabs-panel.nav-collapsed ~ * { /* não usado */ }
+.btn-nav-toggle[aria-expanded="false"] .toggle-chevron {
+  transform: rotate(180deg);
+}
+.btn-nav-toggle[aria-expanded="false"] .toggle-label::after {
+  content: '';
+}
+
+/* ── Painel de abas: transição de altura ────────────────────────────────────
+   Usa max-height + opacity para animar sem JS de layout.
+   grid com 7 botões (~54px cada linha × 2 linhas) ≈ 120px + padding 10px = 130px.
+   Margem de segurança: 160px.
+   ──────────────────────────────────────────────────────────────────────────── */
+#nav-tabs-panel {
+  overflow: hidden;
+  max-height: 200px;   /* valor maior que a altura real → nunca corta */
+  opacity: 1;
+  /* cubic-bezier spring suave */
+  transition:
+    max-height 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity    0.25s ease,
+    margin     0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    padding    0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  /* mantém margin-bottom padrão quando expandido */
+}
+
+/* Estado recolhido */
+#nav-tabs-panel.nav-collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  padding: 0;
+  /* pointer-events: none garante que os botões invisíveis não recebam cliques */
+  pointer-events: none;
+}
+
+/* Linha indicadora de aba ativa — visível quando o menu está recolhido */
+.nav-collapsed-indicator {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-primary, #0A84FF);
+  margin-bottom: 6px;
+  transition: opacity 0.2s;
+}
+.nav-collapsed-indicator.visible {
+  display: flex;
+}
+.nav-collapsed-indicator svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Temas claros (Arctic / light-mode) */
+body.theme-arctic .btn-nav-toggle,
+body.light-mode   .btn-nav-toggle {
+  border-top-color: rgba(0,0,0,0.10);
+  color: #8E8E93;
+}
+body.theme-arctic .btn-nav-toggle:hover,
+body.light-mode   .btn-nav-toggle:hover {
+  background: rgba(0,0,0,0.05);
+  color: #3C3C43;
+}
+
+/* Tema Forest */
+body.theme-forest .btn-nav-toggle:hover {
+  background: rgba(48,209,88,0.08);
+  color: var(--btn-green, #30D158);
+}

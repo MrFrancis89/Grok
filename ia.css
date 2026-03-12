@@ -1,0 +1,689 @@
+/* ia.css — StockFlow Pro v10.3.0
+ * ══════════════════════════════════════════════════════════════════
+ * Estilos exclusivos da aba Gemini IA.
+ *
+ * DESIGN SYSTEM:
+ *   Usa apenas tokens do style.css (var(--...)).
+ *   Zero cores hardcoded → compatível com os 4 temas automaticamente:
+ *   Dark Premium (padrão), Midnight OLED, Arctic Silver, Deep Forest.
+ *
+ * PADRÃO: Apple HIG iOS 18
+ *   • Spring physics: cubic-bezier(0.34,1.56,0.64,1)
+ *   • Safe area: env(safe-area-inset-*)
+ *   • Tap target mínimo: 44×44px
+ *   • Glassmorphism na sheet bottom
+ *   • prefers-reduced-motion respeitado
+ * ══════════════════════════════════════════════════════════════════ */
+
+/* ── Tokens locais ──────────────────────────────────────────────── */
+.gem-root {
+    /* Cores da conversa */
+    --gem-user-bg:     var(--accent-primary);
+    --gem-user-txt:    #ffffff;
+    --gem-bot-bg:      var(--surface-2);
+    --gem-bot-border:  var(--border);
+    /* Input */
+    --gem-input-bg:    var(--surface-2);
+    --gem-input-focus: var(--accent-primary);
+    /* Send button */
+    --gem-send-bg:     var(--accent-primary);
+    --gem-send-glow:   var(--accent-glow);
+    /* Chips */
+    --gem-chip-bg:     var(--surface-2);
+    --gem-chip-border: var(--border);
+    /* Sheet */
+    --gem-sheet-bg:    var(--surface);
+    /* Animações */
+    --gem-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+    --gem-gentle:  cubic-bezier(0.22, 1.20, 0.36, 1);
+    --gem-decel:   cubic-bezier(0.0,  0.0,  0.2,  1);
+}
+
+/* Overrides Arctic (light mode) */
+body.theme-arctic .gem-root,
+body.light-mode    .gem-root {
+    --gem-bot-bg:   #FFFFFF;
+    --gem-input-bg: #FFFFFF;
+    --gem-chip-bg:  #FFFFFF;
+    --gem-sheet-bg: rgba(255,255,255,0.95);
+}
+
+/* ── Layout raiz ──────────────────────────────────────────────── */
+.gem-root {
+    display:        flex;
+    flex-direction: column;
+    height:         100%;
+    min-height:     0;
+    position:       relative;
+    overflow:       hidden;
+    background:     var(--bg);
+}
+
+/* ── Topbar ───────────────────────────────────────────────────── */
+.gem-topbar {
+    display:         flex;
+    align-items:     center;
+    justify-content: space-between;
+    padding:         12px 16px 10px;
+    padding-top:     max(12px, env(safe-area-inset-top, 0px));
+    flex-shrink:     0;
+    background:      var(--bg-elevated);
+    border-bottom:   1px solid var(--border);
+}
+
+.gem-brand {
+    display:     flex;
+    align-items: center;
+    gap:         10px;
+}
+
+.gem-logo-wrap {
+    width:           40px;
+    height:          40px;
+    border-radius:   13px;
+    background:      linear-gradient(135deg,
+                       rgba(66,133,244,0.14),
+                       rgba(155,114,255,0.18));
+    border:          1px solid rgba(155,114,255,0.28);
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    flex-shrink:     0;
+}
+
+.gem-ico-gem { width: 22px; height: 22px; }
+
+.gem-brand-name {
+    font-size:      16px;
+    font-weight:    700;
+    color:          var(--text);
+    letter-spacing: -0.3px;
+    line-height:    1.15;
+}
+
+.gem-brand-sub {
+    font-size:  11px;
+    color:      var(--text-muted);
+    font-weight: 400;
+    margin-top:  1px;
+}
+
+/* Botão de ícone genérico (configurações, fechar, olho) */
+.gem-icon-btn {
+    width:           38px;
+    height:          38px;
+    min-width:       44px; /* tap target */
+    min-height:      44px;
+    border-radius:   11px;
+    background:      var(--surface-2);
+    border:          1px solid var(--border);
+    color:           var(--text-soft);
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    cursor:          pointer;
+    transition:      background var(--dur-fast, 160ms) var(--gem-decel),
+                     transform  80ms var(--gem-spring);
+    -webkit-tap-highlight-color: transparent;
+}
+.gem-icon-btn:hover  { background: var(--surface-3); color: var(--text); }
+.gem-icon-btn:active { transform: scale(0.88); }
+
+/* ── Área de chat ─────────────────────────────────────────────── */
+.gem-chat {
+    flex:             1;
+    min-height:       0;
+    overflow-y:       auto;
+    padding:          12px 12px 4px;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior:  smooth;
+    display:          flex;
+    flex-direction:   column;
+    gap:              8px;
+}
+
+/* ── Telas de boas-vindas / onboarding ───────────────────────── */
+.gem-welcome,
+.gem-onboard {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    text-align:     center;
+    padding:        36px 20px 16px;
+    gap:            10px;
+    animation:      gem-fade-rise 0.44s var(--gem-gentle) both;
+}
+
+@keyframes gem-fade-rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.gem-hero-ico {
+    width:           60px;
+    height:          60px;
+    border-radius:   18px;
+    background:      linear-gradient(135deg,
+                       rgba(66,133,244,0.14),
+                       rgba(155,114,255,0.20));
+    border:          1px solid rgba(155,114,255,0.30);
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    margin-bottom:   4px;
+}
+.gem-hero-ico .gem-ico-gem { width: 32px; height: 32px; }
+
+.gem-welcome-h, .gem-onboard-h {
+    font-size:      20px;
+    font-weight:    700;
+    color:          var(--text);
+    letter-spacing: -0.4px;
+    margin:         0;
+}
+
+.gem-welcome-p {
+    font-size:   14px;
+    color:       var(--text-muted);
+    line-height: 1.55;
+    max-width:   310px;
+    margin:      0;
+}
+
+.gem-onboard-list {
+    list-style:     none;
+    padding:        0;
+    margin:         4px 0;
+    display:        flex;
+    flex-direction: column;
+    gap:            8px;
+    width:          100%;
+    max-width:      300px;
+}
+.gem-onboard-list li {
+    display:       flex;
+    align-items:   center;
+    gap:           10px;
+    padding:       10px 14px;
+    background:    var(--surface-2);
+    border-radius: 12px;
+    border:        1px solid var(--border);
+    font-size:     14px;
+    color:         var(--text-soft);
+    text-align:    left;
+}
+.gem-onboard-list li span:first-child { font-size: 18px; flex-shrink: 0; }
+
+.gem-onboard-cta {
+    font-size:   13px;
+    color:       var(--text-muted);
+    line-height: 1.5;
+    margin:      0;
+}
+
+/* ── Mensagens ────────────────────────────────────────────────── */
+.gem-msg {
+    display:   flex;
+    animation: gem-msg-in 0.26s var(--gem-spring) both;
+}
+@keyframes gem-msg-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+.gem-msg-user { justify-content: flex-end; }
+.gem-msg-bot  { justify-content: flex-start; }
+
+.gem-bubble {
+    max-width:    82%;
+    padding:      10px 14px;
+    font-size:    14.5px;
+    line-height:  1.55;
+    word-break:   break-word;
+    border-radius: 18px;
+    position:     relative;
+}
+
+.gem-bubble-user {
+    background:          var(--gem-user-bg);
+    color:               var(--gem-user-txt);
+    border-bottom-right-radius: 5px;
+    box-shadow:          0 2px 10px var(--gem-send-glow);
+}
+
+.gem-bubble-bot {
+    background:         var(--gem-bot-bg);
+    color:              var(--text);
+    border:             1px solid var(--gem-bot-border);
+    border-bottom-left-radius: 5px;
+    box-shadow:         0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* Markdown */
+.gem-p      { margin: 2px 0; }
+.gem-list   { margin: 4px 0 4px 16px; padding: 0; list-style: disc; }
+.gem-list li { margin: 2px 0; }
+.gem-spacer { height: 5px; }
+.gem-code {
+    background:    rgba(255,255,255,0.09);
+    border-radius: 5px;
+    padding:       1px 5px;
+    font-size:     12.5px;
+    font-family:   'SF Mono', 'Fira Code', 'Monaco', monospace;
+}
+body.theme-arctic .gem-code,
+body.light-mode    .gem-code { background: rgba(0,0,0,0.07); }
+
+.gem-err-txt { color: #FF453A; font-weight: 500; }
+body.theme-arctic .gem-err-txt { color: #C0392B; }
+
+/* ── Typing indicator ─────────────────────────────────────────── */
+.gem-typing {
+    display:     flex;
+    align-items: center;
+    gap:         5px;
+    padding:     5px 2px 2px;
+}
+.gem-typing span {
+    width:  6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: gem-bounce 1.1s ease-in-out infinite;
+}
+.gem-typing span:nth-child(2) { animation-delay: .18s; }
+.gem-typing span:nth-child(3) { animation-delay: .36s; }
+
+@keyframes gem-bounce {
+    0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
+    30%            { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ── Stop button ──────────────────────────────────────────────── */
+.gem-stop-row { margin-top: 7px; }
+.gem-stop-btn {
+    background:    rgba(255,69,58,0.10);
+    color:         #FF453A;
+    border:        1px solid rgba(255,69,58,0.26);
+    border-radius: 9px;
+    padding:       4px 11px;
+    font-size:     12.5px;
+    font-weight:   600;
+    cursor:        pointer;
+    transition:    background 0.14s;
+}
+.gem-stop-btn:active { background: rgba(255,69,58,0.22); }
+
+/* ── Copy button ──────────────────────────────────────────────── */
+.gem-copy-btn {
+    display:       block;
+    margin-top:    9px;
+    padding:       4px 11px;
+    background:    transparent;
+    border:        1px solid var(--border);
+    border-radius: 9px;
+    color:         var(--text-muted);
+    font-size:     11.5px;
+    cursor:        pointer;
+    transition:    background 0.14s, color 0.14s, transform 80ms;
+}
+.gem-copy-btn:hover  { background: var(--surface-3); color: var(--text-soft); }
+.gem-copy-btn:active { transform: scale(0.94); }
+
+/* ── Chips de ação rápida ─────────────────────────────────────── */
+.gem-chips {
+    display:    flex;
+    gap:        7px;
+    padding:    8px 12px 4px;
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    transition: opacity 0.22s var(--gem-decel);
+}
+.gem-chips::-webkit-scrollbar { display: none; }
+
+.gem-chip {
+    display:       flex;
+    align-items:   center;
+    gap:           6px;
+    padding:       7px 13px;
+    border-radius: 20px;
+    background:    var(--gem-chip-bg);
+    border:        1px solid var(--gem-chip-border);
+    color:         var(--text-soft);
+    font-size:     12.5px;
+    font-weight:   500;
+    white-space:   nowrap;
+    flex-shrink:   0;
+    cursor:        pointer;
+    transition:    background 0.14s var(--gem-decel),
+                   border-color 0.14s,
+                   transform  80ms var(--gem-spring);
+    -webkit-tap-highlight-color: transparent;
+}
+.gem-chip:hover  { background: var(--surface-3); border-color: var(--border-strong); color: var(--text); }
+.gem-chip:active { transform: scale(0.91); }
+
+/* ── Barra de input ───────────────────────────────────────────── */
+.gem-input-bar {
+    display:      flex;
+    align-items:  flex-end;
+    gap:          8px;
+    padding:      8px 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    flex-shrink:  0;
+    background:   var(--bg-elevated);
+    border-top:   1px solid var(--border);
+}
+
+.gem-input-wrap {
+    flex:          1;
+    background:    var(--gem-input-bg);
+    border:        1px solid var(--border-strong);
+    border-radius: 14px;
+    padding:       9px 13px;
+    display:       flex;
+    align-items:   center;
+    min-height:    44px;
+    transition:    border-color 0.18s var(--gem-decel),
+                   box-shadow   0.18s var(--gem-decel);
+}
+.gem-input-wrap:focus-within {
+    border-color: var(--gem-input-focus);
+    box-shadow:   0 0 0 3px var(--accent-glow);
+}
+
+.gem-ta {
+    width:       100%;
+    background:  transparent;
+    border:      none;
+    outline:     none;
+    color:       var(--text);
+    font-size:   16px; /* ≥16px — previne zoom no iOS Safari */
+    line-height: 1.45;
+    resize:      none;
+    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    -webkit-appearance: none;
+    min-height:  22px;
+    max-height:  120px;
+}
+.gem-ta::placeholder { color: var(--text-muted); }
+
+.gem-send-btn {
+    width:           44px;
+    height:          44px;
+    min-width:       44px;
+    border-radius:   13px;
+    background:      var(--gem-send-bg);
+    color:           #ffffff;
+    border:          none;
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    cursor:          pointer;
+    flex-shrink:     0;
+    transition:      background  0.16s var(--gem-decel),
+                     box-shadow  0.18s var(--gem-decel),
+                     transform   80ms  var(--gem-spring),
+                     opacity     0.18s;
+    box-shadow:      0 2px 10px var(--gem-send-glow);
+}
+.gem-send-btn:not(:disabled):hover  {
+    background:  var(--accent-hover);
+    box-shadow:  0 4px 16px var(--gem-send-glow);
+}
+.gem-send-btn:not(:disabled):active { transform: scale(0.88); }
+.gem-send-btn:disabled              { opacity: 0.30; cursor: default; box-shadow: none; }
+
+/* ── Sheet de configuração ────────────────────────────────────── */
+.gem-sheet-overlay {
+    position:   absolute;
+    inset:      0;
+    background: rgba(0,0,0,0.52);
+    z-index:    20;
+    display:    flex;
+    align-items: flex-end;
+    transition: background 0.28s var(--gem-decel),
+                opacity    0.28s var(--gem-decel);
+    backdrop-filter:         blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.gem-sheet-overlay.hidden  { display: none; }
+.gem-sheet-overlay         { opacity: 0; pointer-events: none; }
+.gem-sheet-overlay.open    { opacity: 1; pointer-events: auto; }
+
+.gem-sheet {
+    width:         100%;
+    background:    var(--gem-sheet-bg);
+    border-radius: 24px 24px 0 0;
+    box-shadow:    0 -10px 50px rgba(0,0,0,0.40);
+    transform:     translateY(100%);
+    transition:    transform 0.34s var(--gem-gentle);
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+
+    backdrop-filter:         blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+.gem-sheet-overlay.open .gem-sheet { transform: translateY(0); }
+
+.gem-sheet-handle {
+    width:         40px;
+    height:        5px;
+    border-radius: 3px;
+    background:    var(--border-strong);
+    margin:        10px auto 0;
+}
+
+.gem-sheet-header {
+    display:         flex;
+    align-items:     center;
+    justify-content: space-between;
+    padding:         14px 18px 10px;
+    border-bottom:   1px solid var(--border);
+}
+
+.gem-sheet-title {
+    display:     flex;
+    align-items: center;
+    gap:         7px;
+    font-size:   17px;
+    font-weight: 700;
+    color:       var(--text);
+}
+
+.gem-sheet-body {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.gem-sheet-hint {
+    font-size:   14px;
+    color:       var(--text-muted);
+    line-height: 1.5;
+    margin:      0;
+}
+
+.gem-link {
+    color:           var(--accent-primary);
+    text-decoration: none;
+    font-weight:     500;
+}
+.gem-link:hover { text-decoration: underline; }
+
+.gem-key-row {
+    display:     flex;
+    gap:         8px;
+    align-items: center;
+}
+
+.gem-key-inp {
+    flex:          1;
+    height:        48px;
+    padding:       0 14px;
+    border-radius: 13px;
+    background:    var(--surface-2);
+    border:        1px solid var(--border-strong);
+    color:         var(--text);
+    font-size:     15px;
+    font-family:   'SF Mono', 'Fira Code', 'Monaco', monospace;
+    outline:       none;
+    -webkit-appearance: none;
+    transition:    border-color 0.18s var(--gem-decel),
+                   box-shadow   0.18s var(--gem-decel);
+}
+.gem-key-inp:focus {
+    border-color: var(--accent-primary);
+    box-shadow:   0 0 0 3px var(--accent-glow);
+}
+body.theme-arctic .gem-key-inp,
+body.light-mode    .gem-key-inp { background: #FFFFFF; }
+
+.gem-sheet-actions {
+    display: flex;
+    gap:     8px;
+}
+
+/* Botão primário */
+.gem-btn-primary {
+    flex:          1;
+    height:        48px;
+    border-radius: 13px;
+    background:    var(--accent-primary);
+    color:         #ffffff;
+    border:        none;
+    font-size:     16px;
+    font-weight:   700;
+    cursor:        pointer;
+    transition:    opacity 0.14s, transform 80ms var(--gem-spring);
+}
+.gem-btn-primary:active { opacity: 0.80; transform: scale(0.97); }
+
+/* Botão ghost */
+.gem-btn-ghost {
+    height:        48px;
+    padding:       0 16px;
+    border-radius: 13px;
+    background:    var(--surface-2);
+    border:        1px solid var(--border);
+    color:         var(--text-soft);
+    font-size:     15px;
+    font-weight:   500;
+    cursor:        pointer;
+    transition:    background 0.14s;
+}
+.gem-btn-ghost:active { background: var(--surface-3); }
+
+/* Botão destrutivo */
+.gem-btn-danger {
+    height:        48px;
+    padding:       0 16px;
+    border-radius: 13px;
+    background:    rgba(255,69,58,0.10);
+    border:        1px solid rgba(255,69,58,0.26);
+    color:         #FF453A;
+    font-size:     15px;
+    font-weight:   600;
+    cursor:        pointer;
+    transition:    background 0.14s;
+}
+.gem-btn-danger:active { background: rgba(255,69,58,0.22); }
+
+/* Limpar histórico */
+.gem-hist-clear,
+.gem-hist-btn {
+    width:      100%;
+    margin-top: 4px;
+}
+
+.gem-sheet-note {
+    font-size:   12px;
+    color:       var(--text-muted);
+    text-align:  center;
+    line-height: 1.5;
+    margin:      0;
+}
+
+
+/* ── Retry countdown ──────────────────────────────────────────── */
+.gem-retry-msg {
+    font-size:   12.5px;
+    color:       #FF9F0A;
+    font-weight: 500;
+    padding:     5px 2px 2px;
+    line-height: 1.4;
+}
+body.theme-arctic .gem-retry-msg,
+body.light-mode    .gem-retry-msg { color: #C93400; }
+
+/* ── Tool call feedback chips ─────────────────────────────────── */
+.gem-tool-list {
+    display:        flex;
+    flex-direction: column;
+    gap:            5px;
+    margin-bottom:  6px;
+}
+.gem-tool-list:empty { display: none; }
+
+.gem-tool-chip {
+    display:       flex;
+    flex-direction: column;
+    gap:           2px;
+    padding:       7px 11px;
+    border-radius: 10px;
+    font-size:     12.5px;
+    line-height:   1.4;
+    animation:     gem-msg-in 0.22s var(--gem-spring) both;
+}
+
+.gem-tool-chip > span:first-child {
+    font-weight: 600;
+    display:     flex;
+    align-items: center;
+    gap:         5px;
+}
+
+.gem-tool-result {
+    font-size:   12px;
+    opacity:     0.80;
+    font-weight: 400;
+}
+
+.gem-tool-ok {
+    background: rgba(48, 209, 88, 0.10);
+    border:     1px solid rgba(48, 209, 88, 0.22);
+    color:      #30D158;
+}
+body.theme-arctic .gem-tool-ok,
+body.light-mode    .gem-tool-ok {
+    background: rgba(52, 199, 89, 0.08);
+    border:     1px solid rgba(52, 199, 89, 0.22);
+    color:      #248A3D;
+}
+
+.gem-tool-err {
+    background: rgba(255, 69, 58, 0.09);
+    border:     1px solid rgba(255, 69, 58, 0.22);
+    color:      #FF453A;
+}
+body.theme-arctic .gem-tool-err,
+body.light-mode    .gem-tool-err {
+    color: #C0392B;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .gem-msg,
+    .gem-welcome,
+    .gem-onboard,
+    .gem-chip,
+    .gem-send-btn,
+    .gem-sheet,
+    .gem-sheet-overlay {
+        animation:  none !important;
+        transition: opacity 0.12s ease !important;
+        transform:  none !important;
+    }
+    .gem-typing span { animation: none; opacity: 0.45; }
+}

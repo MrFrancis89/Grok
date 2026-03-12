@@ -1,0 +1,37 @@
+/* patch-v980.css — StockFlow Pro v10.0.0
+ * ─────────────────────────────────────────────────────────────────
+ * BUG FIX #1 — Background rola junto com a página no iOS Safari
+ *   Causa: will-change:transform cria um novo stacking context no iOS,
+ *   quebrando position:fixed e fazendo o bg scrollar com o conteúdo.
+ *   Fix: remover will-change e transform do #bg-fixed.
+ *
+ * BUG FIX #2 (DEPRECIADO v10.0.0) — CSS do iframe da Ficha Técnica
+ *   Contexto: A partir de v9.7.7, a Ficha Técnica abre em uma nova aba
+ *   do browser via window.open('ficha-tecnica.html', '_blank').
+ *   O iframe embutido (#ft-iframe, .ft-embed-container, #fichatecnica-section)
+ *   foi abandonado. Os seletores abaixo foram REMOVIDOS nesta versão porque:
+ *     1. Eram código morto — nunca renderizados em produção.
+ *     2. #fichatecnica-section com position:fixed + z-index:110 criava
+ *        um stacking context desnecessário que se sobrepunha a modais
+ *        do app principal (#modal-calc, #modal-alerta, confirm overlay)
+ *        caso o elemento existisse no DOM com display:none.
+ *     3. A referência em navegacao.js (v9.7.7) ao elemento só verifica
+ *        .classList.contains('active'), que jamais é true após a mudança.
+ *   Seletores removidos: #fichatecnica-section, #fichatecnica-section.active,
+ *   .ft-embed-container, #ft-iframe (BUG FIX #2 e #3 do arquivo anterior).
+ * ─────────────────────────────────────────────────────────────────── */
+
+/* ── BUG FIX #1: Background fixo no iOS ─────────────────────────── */
+#bg-fixed {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  /* REMOVE will-change e transform — causam bug de compositing iOS */
+  will-change: auto !important;
+  -webkit-transform: none !important;
+          transform: none !important;
+  -webkit-backface-visibility: visible !important;
+          backface-visibility: visible !important;
+}

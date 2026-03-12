@@ -1,0 +1,938 @@
+/* ============================================================================
+   StockFlow Pro — apple-premium-v10.css v10.0.0
+   Apple HIG Premium Overlay · Reescrever total com especificidade correta
+   Adicionar APÓS todos os outros CSS em index.html e ficha-tecnica.html
+   ============================================================================ */
+
+
+/* ============================================================================
+   LAYER 0 — DESIGN TOKENS EXTRAS
+   ============================================================================ */
+:root {
+  --spring-snappy:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-gentle:  cubic-bezier(0.22, 1.20, 0.36, 1);
+  --spring-bounce:  cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-decel:     cubic-bezier(0.0, 0.0, 0.2, 1);
+
+  --dur-instant: 80ms;
+  --dur-fast:    160ms;
+  --dur-normal:  280ms;
+  --dur-slow:    420ms;
+
+  --elev-card:   0 2px 8px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.18);
+  --elev-modal:  0 24px 64px rgba(0,0,0,.54), 0 8px 20px rgba(0,0,0,.28);
+
+  --sep-line: 1px solid rgba(255,255,255,.07);
+
+  /* Gradientes fixos (não dependem de variável composta) */
+  --grad-blue-green: linear-gradient(135deg, #0A84FF 0%, #30D158 100%);
+  --grad-danger:     linear-gradient(135deg, #FF453A 0%, #FF9500 100%);
+  --grad-gold:       linear-gradient(135deg, #FF9F0A 0%, #FFD60A 100%);
+}
+
+/* Arctic / Light mode tokens */
+body.theme-arctic, body.light-mode {
+  --sep-line: 1px solid rgba(0,0,0,.08);
+  --elev-card: 0 2px 10px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.08);
+}
+body.theme-forest {
+  --sep-line: 1px solid rgba(48,209,88,.10);
+}
+
+
+/* ============================================================================
+   LAYER 1 — KEYFRAMES
+   ============================================================================ */
+@keyframes apSlideUp {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes apFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes apPop {
+  0%   { transform: scale(.80); opacity: 0; }
+  70%  { transform: scale(1.06); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes apRowIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes apGlow {
+  0%, 100% { box-shadow: 0 4px 18px rgba(10,132,255,.35); }
+  50%       { box-shadow: 0 4px 28px rgba(10,132,255,.65); }
+}
+@keyframes apShimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+@keyframes apSpin {
+  to { transform: rotate(360deg); }
+}
+
+
+/* ============================================================================
+   LAYER 2 — TABELA DE ESTOQUE: LINHAS COMO CARDS iOS
+   Técnica: border-collapse:separate + bg nas células + border nas extremidades
+   ============================================================================ */
+
+/* Tabela em modo card */
+#lista-itens-container {
+  border-collapse: separate !important;
+  border-spacing: 0 7px !important;
+  width: 100%;
+}
+
+/* Linha de item: background nas células (override do transparent !important) */
+#lista-itens-container tr:not(.categoria-header-row) td {
+  background: var(--surface) !important;
+  border-top:    1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-left:   none !important;
+  border-right:  none !important;
+  transition: background var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+
+/* Canto esquerdo arredondado */
+#lista-itens-container tr:not(.categoria-header-row) td:first-child {
+  border-radius: 16px 0 0 16px !important;
+  border-left: 1px solid var(--border) !important;
+}
+
+/* Canto direito arredondado */
+#lista-itens-container tr:not(.categoria-header-row) td:last-child {
+  border-radius: 0 16px 16px 0 !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+/* Sombra e hover no tr (não tem bg própria — herdada pelo tr) */
+#lista-itens-container tr:not(.categoria-header-row):hover td {
+  background: var(--surface-2) !important;
+}
+
+/* Linha marcada (check) */
+#lista-itens-container tr.linha-marcada td {
+  background: rgba(10,132,255,.08) !important;
+  border-color: rgba(10,132,255,.22) !important;
+}
+#lista-itens-container tr.linha-marcada td:first-child {
+  border-left: 3px solid #0A84FF !important;
+  padding-left: 10px;
+}
+
+/* Light mode cards */
+body.theme-arctic #lista-itens-container tr:not(.categoria-header-row) td,
+body.light-mode   #lista-itens-container tr:not(.categoria-header-row) td {
+  background: #FFFFFF !important;
+  border-color: rgba(0,0,0,.09) !important;
+}
+body.theme-arctic #lista-itens-container tr:not(.categoria-header-row):hover td,
+body.light-mode   #lista-itens-container tr:not(.categoria-header-row):hover td {
+  background: #F7F7FA !important;
+}
+
+/* Forest mode cards */
+body.theme-forest #lista-itens-container tr:not(.categoria-header-row) td {
+  background: var(--surface) !important;
+  border-color: rgba(48,209,88,.13) !important;
+}
+
+
+/* ============================================================================
+   LAYER 3 — CATEGORIA HEADERS: PILLS COLORIDAS
+   ============================================================================ */
+
+/* Remove borda-bottom do tr de header */
+#lista-itens-container tr.categoria-header-row td {
+  border-bottom: none !important;
+  background: transparent !important;
+  padding: 18px 0 6px !important;
+}
+
+/* A td interna .categoria-header vira pill colorida */
+.categoria-header {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 12px 4px 10px !important;
+  border-radius: 20px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: .6px !important;
+  text-transform: uppercase !important;
+  color: #fff !important;
+  /* background-color já vem do style inline em ui.js */
+  box-shadow: 0 2px 8px rgba(0,0,0,.22) !important;
+  width: auto !important;
+}
+
+
+/* ============================================================================
+   LAYER 4 — CHECKBOX PERSONALIZADO
+   ============================================================================ */
+
+#lista-itens-container input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  border: 2px solid var(--border-strong) !important;
+  background: transparent !important;
+  cursor: pointer;
+  position: relative;
+  transition:
+    background var(--dur-fast) var(--spring-snappy),
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--spring-bounce);
+  flex-shrink: 0;
+}
+#lista-itens-container input[type="checkbox"]:checked {
+  background: #0A84FF !important;
+  border-color: #0A84FF !important;
+  transform: scale(1.12);
+}
+#lista-itens-container input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 10' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5l3.5 3.5L11 1' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/60% no-repeat;
+}
+#lista-itens-container input[type="checkbox"]:active {
+  transform: scale(.90);
+}
+
+
+/* ============================================================================
+   LAYER 5 — INPUT DE QUANTIDADE E SELECT: iOS STYLE
+   ============================================================================ */
+
+.input-qtd-tabela {
+  background: var(--surface-2) !important;
+  border: 1.5px solid var(--border-strong) !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  font-size: 17px !important;
+  letter-spacing: -.3px;
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow   var(--dur-fast) ease,
+    transform    var(--dur-fast) var(--spring-snappy) !important;
+}
+.input-qtd-tabela:focus {
+  border-color: #0A84FF !important;
+  box-shadow: 0 0 0 3px rgba(10,132,255,.28) !important;
+  transform: scale(1.04) !important;
+}
+
+.select-tabela {
+  background: var(--surface-2) !important;
+  border: 1.5px solid var(--border-strong) !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+
+/* ============================================================================
+   LAYER 6 — BOTÕES PREMIUM
+   ============================================================================ */
+
+/* Botão primário — gradiente azul-verde */
+.btn-zap {
+  background: var(--grad-blue-green) !important;
+  border: none !important;
+  border-radius: 16px !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  letter-spacing: .1px;
+  box-shadow: 0 4px 16px rgba(10,132,255,.38) !important;
+  transition:
+    transform var(--dur-fast) var(--spring-snappy),
+    box-shadow var(--dur-fast) ease,
+    opacity    var(--dur-fast) ease !important;
+}
+.btn-zap:active {
+  transform: scale(.95) !important;
+  box-shadow: 0 2px 8px rgba(10,132,255,.22) !important;
+  opacity: .9 !important;
+}
+
+/* Botão Novo Dia — animação de glow */
+#btn-novo-dia {
+  animation: apGlow 2.5s ease-in-out infinite !important;
+}
+
+/* Botão de perigo (compras, apagar via swipe) */
+.btn-danger, [class*="btn-apagar"], .swipe-btn-delete {
+  background: var(--grad-danger) !important;
+  border-radius: 14px !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(255,69,58,.35) !important;
+}
+
+
+/* ============================================================================
+   LAYER 7 — NAVIGATION BAR PREMIUM
+   ============================================================================ */
+
+/* Glassmorphism mais pronunciado na nav */
+.nav-tabs {
+  backdrop-filter: blur(48px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(48px) saturate(180%) !important;
+  border-radius: 24px !important;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.32),
+    0 2px 8px rgba(0,0,0,.20),
+    0 0 0 1px rgba(255,255,255,.10) inset !important;
+}
+
+/* Tab ativa: fundo sólido com sombra acentuada */
+.nav-tab.active {
+  border-radius: 20px !important;
+  box-shadow:
+    0 6px 20px rgba(10,132,255,.45),
+    0 2px 6px rgba(10,132,255,.28),
+    0 0 0 1px rgba(255,255,255,.20) inset !important;
+  transform: translateY(-1px);
+}
+
+/* Tab inativa: hover sutil */
+.nav-tab:not(.active):hover {
+  background: rgba(255,255,255,.08) !important;
+  border-radius: 18px !important;
+}
+
+/* Aba label — tamanho ligeiramente maior */
+.tab-label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: .2px !important;
+}
+
+
+/* ============================================================================
+   LAYER 8 — MODAIS: BOTTOM SHEET STYLE
+   ============================================================================ */
+
+/* Overlay mais opaco */
+.modal-overlay {
+  backdrop-filter: blur(12px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(150%) !important;
+  background: rgba(0,0,0,.55) !important;
+}
+
+/* Modal box como sheet */
+.modal-box {
+  border-radius: 28px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border-strong) !important;
+  box-shadow: var(--elev-modal) !important;
+  animation: apSlideUp var(--dur-normal) var(--spring-gentle) both !important;
+}
+
+/* Handle no topo */
+.modal-box::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255,255,255,.25);
+  margin: 0 auto 16px;
+}
+body.theme-arctic .modal-box::before,
+body.light-mode   .modal-box::before {
+  background: rgba(0,0,0,.15);
+}
+
+/* Botões do modal */
+#modal-btn-confirm {
+  background: var(--grad-blue-green) !important;
+  border-radius: 14px !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(10,132,255,.30) !important;
+}
+#modal-btn-cancel {
+  background: var(--surface-2) !important;
+  border: 1.5px solid var(--border-strong) !important;
+  border-radius: 14px !important;
+  color: var(--text-soft) !important;
+  font-weight: 600 !important;
+}
+#modal-btn-confirm:active,
+#modal-btn-cancel:active {
+  transform: scale(.96) !important;
+}
+
+/* Calculadora */
+#modal-calc .modal-box {
+  border-radius: 28px !important;
+}
+#calc-display {
+  font-size: 44px !important;
+  font-weight: 300 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -1.5px !important;
+  color: var(--text) !important;
+  text-align: right !important;
+}
+
+
+/* ============================================================================
+   LAYER 9 — SWIPE ACTIONS: VISUAL PREMIUM
+   ============================================================================ */
+
+/* Botões de swipe revelados */
+#swipe-bg {
+  border-radius: 0 16px 16px 0 !important;
+  overflow: hidden !important;
+}
+
+/* Botão Apagar (vermelho) */
+.swipe-action-apagar,
+[data-swipe-action="apagar"] {
+  background: linear-gradient(135deg, #FF453A, #FF6B4A) !important;
+  border-radius: 0 14px 14px 0 !important;
+}
+
+/* Botão Alerta (laranja) */
+.swipe-action-alerta,
+[data-swipe-action="alerta"] {
+  background: linear-gradient(135deg, #FF9F0A, #FF6B4A) !important;
+}
+
+
+/* ============================================================================
+   LAYER 10 — TOAST: GLASSMORPHISM
+   ============================================================================ */
+
+#toast-container > div,
+.toast-msg {
+  backdrop-filter: blur(24px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+  background: rgba(44,44,46,.82) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  border-radius: 20px !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.38) !important;
+  animation: apSlideUp var(--dur-normal) var(--spring-gentle) both !important;
+}
+body.theme-arctic #toast-container > div,
+body.light-mode   .toast-msg {
+  background: rgba(255,255,255,.90) !important;
+  color: #1C1C1E !important;
+  border-color: rgba(0,0,0,.10) !important;
+}
+
+
+/* ============================================================================
+   LAYER 11 — STATUS SAVE (PILL ANIMADO)
+   ============================================================================ */
+
+#status-save {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px;
+  padding: 4px 12px !important;
+  border-radius: 20px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .3px;
+  background: rgba(48,209,88,.15) !important;
+  color: #30D158 !important;
+  border: 1px solid rgba(48,209,88,.28) !important;
+  transition: opacity var(--dur-fast) ease !important;
+}
+
+
+/* ============================================================================
+   LAYER 12 — LUPA FLUTUANTE
+   ============================================================================ */
+
+#lupa-flutuante,
+.lupa-flutuante {
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  background: var(--glass-bg) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,.38), 0 2px 8px rgba(0,0,0,.22) !important;
+}
+
+
+/* ============================================================================
+   LAYER 13 — LISTA FÁCIL: CARDS E GAUGE PREMIUM
+   ============================================================================ */
+
+/* Rows como cards */
+#lf-tableBody tr.lf-item-row {
+  background: var(--surface) !important;
+  border-radius: 14px !important;
+  border: 1px solid var(--border) !important;
+  transition: background var(--dur-fast) ease !important;
+}
+#lf-tableBody tr.lf-item-row td {
+  background: transparent !important;
+  border-bottom: none !important;
+}
+#lf-tableBody tr.lf-item-row:hover {
+  background: var(--surface-2) !important;
+}
+
+/* Gauge ring — cor gradiente */
+#lf-gaugeRing,
+.lf-gauge-svg circle:last-child {
+  stroke: url(#gaugeGrad) !important;
+}
+
+
+/* ============================================================================
+   LAYER 14 — FICHA TÉCNICA: CARDS E KPIs PREMIUM
+   ============================================================================ */
+
+/* Items da lista de ingredientes/receitas */
+.ft-list-item,
+.ft-ing-row,
+.ft-rec-row,
+.ft-pre-row {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--elev-card) !important;
+  transition:
+    transform   var(--dur-fast) var(--spring-snappy),
+    box-shadow  var(--dur-fast) ease !important;
+  animation: apRowIn var(--dur-normal) var(--spring-gentle) both;
+}
+.ft-list-item:hover,
+.ft-ing-row:hover,
+.ft-rec-row:hover,
+.ft-pre-row:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.28) !important;
+}
+
+/* KPI cards */
+.ft-kpi,
+.ft-kpi-card {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--elev-card) !important;
+  position: relative;
+  overflow: hidden;
+}
+.ft-kpi::before,
+.ft-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--grad-blue-green);
+  border-radius: 20px 20px 0 0;
+}
+
+/* Ranking top 1 — borda dourada */
+.ft-rank-item:first-child,
+.ft-dash-rank-item:first-child {
+  border: 1.5px solid #FF9F0A !important;
+  background: rgba(255,159,10,.08) !important;
+}
+
+/* Modais FT como sheets */
+#ft-modal .ft-modal-box,
+#ft-modal-2 .ft-modal-box {
+  border-radius: 28px 28px 0 0 !important;
+  animation: apSlideUp var(--dur-normal) var(--spring-gentle) both !important;
+}
+
+/* Valor de custo com destaque */
+.ft-calc-val.has,
+.ft-custo-destaque {
+  background: var(--grad-blue-green) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-weight: 800 !important;
+}
+
+/* FAB */
+#ft-fab {
+  background: var(--grad-blue-green) !important;
+  box-shadow: 0 6px 20px rgba(10,132,255,.42) !important;
+  animation: apGlow 2.5s ease-in-out infinite !important;
+}
+#ft-fab:active {
+  transform: scale(.90) !important;
+  animation: none !important;
+}
+
+/* Toast FT */
+#ft-toast {
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  background: rgba(44,44,46,.85) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  font-weight: 600 !important;
+}
+
+
+/* ============================================================================
+   LAYER 15 — ABA CALENDÁRIO: CÉLULAS PREMIUM
+   ============================================================================ */
+
+/* Grid cells */
+.cal-cell,
+.cal-day {
+  border-radius: 12px !important;
+  transition: transform var(--dur-fast) var(--spring-snappy) !important;
+}
+.cal-cell:hover,
+.cal-day:hover {
+  transform: scale(1.08) !important;
+}
+/* Dia com snapshot */
+.cal-cell.has-snap,
+.cal-day.has-snapshot {
+  background: rgba(10,132,255,.18) !important;
+  border: 1.5px solid rgba(10,132,255,.40) !important;
+  font-weight: 700 !important;
+}
+/* Dia atual */
+.cal-cell.today,
+.cal-day.today {
+  border: 2px solid #0A84FF !important;
+  font-weight: 800 !important;
+}
+
+
+/* ============================================================================
+   LAYER 16 — ABA MASSA MASTER: PREMIUM
+   ============================================================================ */
+
+.massa-tab-btn,
+.massa-aba-btn {
+  border-radius: 16px !important;
+  font-weight: 600 !important;
+  transition:
+    background var(--dur-fast) ease,
+    transform  var(--dur-fast) var(--spring-snappy) !important;
+}
+.massa-tab-btn.active,
+.massa-aba-btn.active {
+  background: var(--grad-blue-green) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(10,132,255,.35) !important;
+  transform: scale(1.04) !important;
+}
+
+.massa-ingrediente-row,
+.massa-ing-row {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  transition: background var(--dur-fast) ease !important;
+  animation: apRowIn var(--dur-normal) var(--spring-gentle) both;
+}
+
+
+/* ============================================================================
+   LAYER 17 — ABA PRODUÇÃO TOTAL (DOM dinâmico de producao.js)
+   ============================================================================ */
+
+.prod-vazio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: 32px 20px;
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  margin: 8px 0;
+}
+
+.prod-card {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 22px !important;
+  padding: 18px !important;
+  margin-bottom: 12px !important;
+  box-shadow: var(--elev-card) !important;
+  animation: apSlideUp var(--dur-normal) var(--spring-gentle) both;
+}
+
+.prod-card-titulo {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .6px !important;
+  color: var(--text-muted) !important;
+  margin-bottom: 14px !important;
+}
+
+.prod-config-list { display: flex; flex-direction: column; gap: 10px; }
+
+.prod-config-row--card {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 18px !important;
+  padding: 14px !important;
+  transition:
+    box-shadow var(--dur-fast) ease,
+    transform  var(--dur-fast) ease !important;
+}
+.prod-config-row--card:focus-within {
+  box-shadow: 0 0 0 3px rgba(10,132,255,.30) !important;
+  transform: translateY(-1px) !important;
+}
+
+.prod-config-header { margin-bottom: 10px; }
+
+.prod-config-nome-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--grad-blue-green) !important;
+  color: #fff !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: .2px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.20);
+}
+
+.prod-config-inputs-row {
+  display: flex;
+  gap: 10px;
+}
+.prod-input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+.prod-input-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: .2px;
+}
+.prod-input {
+  width: 100%;
+  padding: 10px 32px 10px 14px;
+  background: var(--surface-3) !important;
+  border: 1.5px solid var(--border-strong) !important;
+  border-radius: 13px !important;
+  color: var(--text) !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow   var(--dur-fast) ease !important;
+  -moz-appearance: textfield;
+}
+.prod-input::-webkit-inner-spin-button,
+.prod-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.prod-input:focus {
+  border-color: #0A84FF !important;
+  box-shadow: 0 0 0 3px rgba(10,132,255,.25) !important;
+  outline: none !important;
+}
+.prod-input-suf {
+  position: absolute;
+  right: 11px;
+  bottom: 11px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.prod-btn-calcular {
+  width: 100%;
+  padding: 15px;
+  border-radius: 18px !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  border: none;
+  cursor: pointer;
+  background: var(--grad-blue-green) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 20px rgba(10,132,255,.38) !important;
+  margin-bottom: 12px;
+  transition:
+    transform var(--dur-fast) var(--spring-snappy),
+    box-shadow var(--dur-fast) ease !important;
+}
+.prod-btn-calcular:active {
+  transform: scale(.96) !important;
+  box-shadow: 0 2px 8px rgba(10,132,255,.22) !important;
+}
+.prod-btn-copiar {
+  width: 100%;
+  padding: 13px;
+  border-radius: 18px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  color: #0A84FF !important;
+  border: 2px solid rgba(10,132,255,.45) !important;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: background var(--dur-fast) ease !important;
+}
+.prod-btn-copiar:active { background: rgba(10,132,255,.10) !important; }
+
+.prod-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.prod-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.prod-table thead th {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: var(--sep-line);
+}
+.prod-table td {
+  padding: 11px 8px;
+  border-bottom: var(--sep-line);
+  color: var(--text);
+}
+.prod-td-nome { font-weight: 600; }
+.prod-td-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+.prod-td-bolas {
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0A84FF;
+}
+.prod-tr-total td {
+  font-weight: 700;
+  border-top: 1.5px solid var(--border-strong);
+  border-bottom: none !important;
+  padding-top: 13px;
+}
+.prod-tr-total .prod-bolas-total { color: #0A84FF; font-size: 18px; }
+
+.prod-badge-bolas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(10,132,255,.14) 0%, rgba(48,209,88,.10) 100%);
+  border: 1px solid rgba(10,132,255,.22);
+  animation: apPop var(--dur-normal) var(--spring-bounce) both;
+}
+.prod-badge-num {
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: var(--grad-blue-green);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+.prod-badge-lbl {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-soft);
+  margin-top: 6px;
+}
+
+.prod-sep-list { list-style: none; margin: 0; padding: 0; }
+.prod-sep-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 4px;
+  border-bottom: var(--sep-line);
+  animation: apRowIn var(--dur-normal) var(--spring-gentle) both;
+}
+.prod-sep-item:last-child { border-bottom: none; }
+.prod-sep-nome { font-size: 14px; font-weight: 600; color: var(--text); }
+.prod-sep-val {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--grad-blue-green);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+
+/* ============================================================================
+   LAYER 18 — GLOBAL: INPUTS E MODALS GENERICOS
+   ============================================================================ */
+
+/* Inputs genéricos — focus ring */
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+}
+
+/* Scrollbar premium (webkit) */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.20);
+  border-radius: 4px;
+}
+body.theme-arctic ::-webkit-scrollbar-thumb,
+body.light-mode   ::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,.15);
+}
+
+/* Safe area padding no body */
+body {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Dark mode: glow nas headers de categoria */
+body:not(.theme-arctic):not(.light-mode) .categoria-header {
+  box-shadow: 0 2px 12px rgba(0,0,0,.32) !important;
+}
+
+
+/* ============================================================================
+   LAYER 19 — REDUCED MOTION
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  #btn-novo-dia, #ft-fab {
+    animation: none !important;
+  }
+}
+
+
+/* ============================================================================
+   FIM — apple-premium-v10.css · StockFlow Pro v10.0.0
+   19 layers · Especificidade correta · Compatível com 4 temas
+   ============================================================================ */

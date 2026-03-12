@@ -1,0 +1,126 @@
+/* bg-upload.css — StockFlow Pro v10.0.1
+ * ═══════════════════════════════════════════════════════════════
+ * FIX v10.0.1: background-attachment:fixed removido do body.
+ *
+ * CAUSA RAIZ DO ZOOM/ROLAGEM EM MOBILE:
+ *   body { background-attachment: fixed } é ignorado ou implementado
+ *   incorretamente em TODOS os browsers móbile:
+ *     - iOS Safari: não suporta → bg rola com o conteúdo ou faz zoom
+ *     - Chrome Android: trata como 'scroll' → bg rola junto
+ *     - Firefox Android: comportamento inconsistente por versão
+ *   O body pode ser maior que a viewport (conteúdo longo), e o browser
+ *   recalcula a posição da imagem a cada frame de scroll → zoom visível.
+ *
+ * SOLUÇÃO:
+ *   O bg customizado agora é aplicado ao #bg-fixed (position:fixed +
+ *   translateZ(0) + will-change:transform), que já é o mecanismo correto
+ *   usado pelo fundo-pizza.jpg padrão. O body não recebe mais
+ *   backgroundImage via JS — apenas a classe 'has-custom-bg' para
+ *   sinalizar o estado ao overlay.
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* ── body.has-custom-bg — apenas sinalização de estado ────────── */
+/* Não aplica mais background-* no body (causava zoom em mobile).
+ * O #bg-fixed recebe o backgroundImage via JS em bg-upload.js.    */
+body.has-custom-bg {
+    /* intencional vazio — estado gerenciado pelo #bg-fixed */
+}
+
+/* ── #bg-fixed com custom bg: opacidade total (sem filtro escuro) ─ */
+/* O fundo-pizza.jpg padrão tem opacity reduzida (0.55) no style.css.
+ * Com bg personalizado o usuário quer ver a própria imagem: 1.0.    */
+body.has-custom-bg #bg-fixed {
+    opacity: 1 !important;
+    /* Sem transition para a troca de imagem ser instantânea.
+     * A transição de opacidade do style.css cuida do fade normal.  */
+}
+
+/* ── Overlay de escurecimento ──────────────────────────────────── */
+/* Injetado via JS como <div id="bg-overlay"> — NÃO usa ::before.
+ * Motivo: pseudo-elementos em body criam stacking context implícito
+ * que interfere com position:fixed dos popups e modais. */
+#bg-overlay {
+    position:       fixed;
+    inset:          0;
+    background:     var(--bg-overlay, rgba(0, 0, 0, 0.42));
+    z-index:        0;   /* abaixo de TUDO — apenas acima do bg do body */
+    pointer-events: none;
+}
+
+/* ── Wrapper do botão ──────────────────────────────────────────── */
+/* Posicionamento agora herdado do #float-cluster (acoplado à lupa). */
+#bg-upload-wrapper {
+    display:     flex;
+    align-items: center;
+    gap:         6px;
+}
+
+/* ── Botão principal (label) ───────────────────────────────────── */
+.bg-upload-label {
+    display:         inline-flex;
+    align-items:     center;
+    gap:             6px;
+    padding:         8px 14px;
+    border-radius:   999px;
+    cursor:          pointer;
+    user-select:     none;
+    -webkit-user-select: none;
+
+    background:  var(--btn-secondary-bg,  rgba(255, 255, 255, 0.12));
+    color:       var(--btn-secondary-fg,  #ffffff);
+    border:      1px solid var(--btn-secondary-border, rgba(255, 255, 255, 0.22));
+    backdrop-filter:         blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    font-size:      13px;
+    font-weight:    500;
+    line-height:    1;
+    letter-spacing: 0.01em;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+
+    min-height: 44px;
+    min-width:  44px;
+}
+
+.bg-upload-label:hover {
+    background:  var(--btn-secondary-hover, rgba(255, 255, 255, 0.22));
+    box-shadow:  0 4px 14px rgba(0, 0, 0, 0.30);
+}
+
+.bg-upload-label:active {
+    transform:  scale(0.95);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.20);
+}
+
+@media (max-width: 360px) {
+    .bg-upload-text { display: none; }
+    .bg-upload-label { padding: 8px 10px; }
+}
+
+/* ── Botão de remoção (×) ──────────────────────────────────────── */
+.bg-remove-btn {
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+    width:           28px;
+    height:          28px;
+    border-radius:   50%;
+    border:          1px solid var(--btn-secondary-border, rgba(255, 255, 255, 0.22));
+    background:      var(--btn-secondary-bg, rgba(255, 255, 255, 0.12));
+    color:           var(--btn-secondary-fg, #ffffff);
+    backdrop-filter:         blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor:          pointer;
+    padding:         0;
+    box-shadow:      0 2px 6px rgba(0, 0, 0, 0.20);
+    transition:      background 0.18s ease, transform 0.12s ease;
+    flex-shrink:     0;
+}
+
+.bg-remove-btn:hover  { background: rgba(220, 60, 60, 0.55); }
+.bg-remove-btn:active { transform: scale(0.90); }
+
+/* ── Safe Area (iOS notch / Dynamic Island) ────────────────────── */
+/* Tratada no #float-cluster em style.css. */
