@@ -75,53 +75,58 @@ export function fbGetCurrentUser() {
     });
 }
 
-// ── Auth: PWA standalone ─────────────────────────────────────────
+// ── Auth: detecção de ambiente ────────────────────────────────────
 function _isStandalone() {
     return window.matchMedia('(display-mode: standalone)').matches ||
            window.navigator.standalone === true;
 }
 
-// ── Auth: login Google ────────────────────────────────────────────
-// ESTRATÉGIA GITHUB PAGES:
-//   signInWithRedirect está quebrado em qualquer domínio fora do Firebase
-//   Hosting porque o SDK usa um iframe invisível para firebaseapp.com para
-//   trocar o token OAuth. Browsers modernos bloqueiam esse iframe como
-//   cookie de terceiro (Chrome, Firefox, Safari com ITP).
-//   Resultado: getRedirectResult() sempre retorna null → loop de login.
+// Safari (desktop e iOS) e qualquer browser iOS (Chrome iOS, Firefox iOS)
+// bloqueiam signInWithPopup por dois motivos distintos:
 //
-//   signInWithPopup usa postMessage (não cookies), por isso funciona mesmo
-//   com third-party cookies bloqueados. É o único fluxo confiável no GitHub Pages.
-//   Redirect só é usado em PWA standalone (onde popup é impossível).
+//   iOS:             window.open() dentro de função async perde a cadeia
+//                    de "user gesture" no microtask scheduler do WebKit →
+//                    Safari mata o popup silenciosamente → auth/internal-error.
+//
+//   Safari desktop:  mesmo comportamento com popups de múltiplos redirects
+//                    internos (ITP). O popup abre, chega na senha, é morto.
+//
+//   iPad desktop mode: UA reporta "Macintosh" — /iPad/ não bate.
+//                    Detectado via maxTouchPoints > 1 + platform Mac.
+//
+// Solução: redirect para todo WebKit/Safari. Chrome e Firefox desktop
+// usam popup normalmente (postMessage, sem dependência de cookies).
+function _deveUsarRedirect() {
+    if (_isStandalone()) return true;
+    const ua = navigator.userAgent;
+    // iOS devices (incluindo Chrome iOS e Firefox iOS — todos usam WebKit)
+    if (/iPhone|iPad|iPod/.test(ua)) return true;
+    // iPad em modo desktop: UA diz "Macintosh" mas tem touch
+    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
+    // Safari desktop: tem "Safari" mas NÃO tem "Chrome" nem "Chromium" nem "Firefox"
+    if (/Safari/.test(ua) && !/Chrome|Chromium|Firefox/.test(ua)) return true;
+    return false;
+}
+
+// ── Auth: login Google ────────────────────────────────────────────
 export async function fbSignInGoogle() {
     if (!_auth) throw new Error('Firebase não inicializado');
     const provider = new firebase.auth.GoogleAuthProvider();
-    // Sem prompt:'select_account' — menos redirects internos no popup,
-    // menor chance de o browser matar o popup mid-flow.
-    // Se o usuário quiser trocar de conta, pode fazer logout primeiro.
+    provider.setCustomParameters({ prompt: 'select_account' });
 
-    if (_isStandalone()) {
-        // PWA instalada: popup é bloqueado pelo OS → único jeito é redirect
+    if (_deveUsarRedirect()) {
         await _auth.signInWithRedirect(provider);
-        return null;
+        return null; // página vai recarregar após o redirect
     }
 
-    // Todos os browsers (incluindo Safari iOS em modo web):
-    // popup via postMessage — funciona sem third-party cookies
-    try {
-        const cred = await _auth.signInWithPopup(provider);
-        _uid   = cred.user.uid;
-        _user  = cred.user;
-        _ready = true;
-        _readyListeners.forEach(fn => fn(_user));
-        console.info(`[firebase] ✓ Login Google (popup). UID: ${_uid}`);
-        return cred.user;
-    } catch (e) {
-        // auth/popup-closed-by-user: usuário fechou o popup — relança para o
-        // chamador exibir mensagem, NÃO faz redirect (redirect é quebrado no GitHub Pages).
-        // auth/popup-blocked: browser bloqueou o popup — relança com código
-        // identificável para exibir instrução de como permitir popups.
-        throw e;
-    }
+    // Desktop (Chrome / Firefox): popup funciona normalmente
+    const cred = await _auth.signInWithPopup(provider);
+    _uid   = cred.user.uid;
+    _user  = cred.user;
+    _ready = true;
+    _readyListeners.forEach(fn => fn(_user));
+    console.info(`[firebase] ✓ Login Google (popup). UID: ${_uid}`);
+    return cred.user;
 }
 
 // ── Auth: capturar resultado do redirect (chamar no boot) ─────────
