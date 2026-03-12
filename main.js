@@ -138,9 +138,12 @@ async function _initFirebaseApp() {
                 await fbPullPrincipal();
                 resolve(true);
             } catch (e) {
-                const msg = e.code === 'auth/popup-closed-by-user' ? 'Login cancelado.' :
-                            e.code === 'auth/popup-blocked'        ? 'Popup bloqueado. Permita popups para este site.' :
-                            'Falha ao entrar. Tente novamente.';
+                const msg = e.code === 'auth/popup-closed-by-user'   ? 'Login cancelado.' :
+                            e.code === 'auth/popup-blocked'           ? 'Popup bloqueado. Permita popups para este site nas configurações do navegador.' :
+                            e.code === 'auth/network-request-failed'  ? 'Sem conexão. Verifique a internet e tente novamente.' :
+                            e.code === 'auth/cancelled-popup-request' ? 'Outro login em andamento. Aguarde e tente novamente.' :
+                            e.code === 'auth/unauthorized-domain'     ? 'Domínio não autorizado no Firebase. Verifique as configurações do projeto.' :
+                            `Falha ao entrar (${e.code || 'erro desconhecido'}). Tente novamente.`;
                 _mostrarLoginApp(msg);
                 if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Entrar com Google'; }
                 // Não resolve → usuário tenta de novo
