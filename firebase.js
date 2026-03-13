@@ -75,58 +75,21 @@ export function fbGetCurrentUser() {
     });
 }
 
-// ── Auth: detecção de ambiente ────────────────────────────────────
-// Redirect é usado SOMENTE no modo PWA standalone (app instalado na
-// tela inicial). Nesse contexto o window.open() é bloqueado pelo SO
-// e o popup nunca abre.
-//
-// Safari browser, Chrome iOS, Android e todos os browsers normais
-// usam signInWithPopup — comportamento comprovadamente funcional
-// na v1.0 do projeto em todos esses ambientes.
-function _deveUsarRedirect() {
-    return window.matchMedia('(display-mode: standalone)').matches ||
-           window.navigator.standalone === true;
-}
-
-// ── Auth: login Google ────────────────────────────────────────────
+// ── Auth: login Google (popup) ────────────────────────────────────
+// signInWithPopup funciona em Safari iOS, Android e todos os browsers.
+// A lógica de redirect introduzida na v10.0.0 causava auth/internal-error
+// no Android e loop de login no iOS — removida e revertida para popup puro.
 export async function fbSignInGoogle() {
     if (!_auth) throw new Error('Firebase não inicializado');
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-
-    if (_deveUsarRedirect()) {
-        await _auth.signInWithRedirect(provider);
-        return null; // página vai recarregar após o redirect
-    }
-
-    // Desktop (Chrome / Firefox): popup funciona normalmente
     const cred = await _auth.signInWithPopup(provider);
     _uid   = cred.user.uid;
     _user  = cred.user;
     _ready = true;
     _readyListeners.forEach(fn => fn(_user));
-    console.info(`[firebase] ✓ Login Google (popup). UID: ${_uid}`);
+    console.info(`[firebase] ✓ Login Google. UID: ${_uid}`);
     return cred.user;
-}
-
-// ── Auth: capturar resultado do redirect (chamar no boot) ─────────
-export async function fbGetRedirectResult() {
-    if (!_auth) return null;
-    try {
-        const cred = await _auth.getRedirectResult();
-        if (cred?.user) {
-            _uid   = cred.user.uid;
-            _user  = cred.user;
-            _ready = true;
-            _readyListeners.forEach(fn => fn(_user));
-            console.info(`[firebase] ✓ Login Google (redirect). UID: ${_uid}`);
-            return cred.user;
-        }
-    } catch (e) {
-        console.error('[firebase] getRedirectResult erro:', e);
-        throw e;
-    }
-    return null;
 }
 
 // ── Auth: logout ──────────────────────────────────────────────────
