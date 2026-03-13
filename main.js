@@ -33,8 +33,7 @@ import {
     initStorage,
 } from './storage.js';
 import { initFirebase, fbGetCurrentUser, fbSignInGoogle,
-         fbSignOut, fbIsAvailable, fbGetUser,
-         fbGetRedirectResult } from './firebase.js';
+         fbSignOut, fbIsAvailable, fbGetUser } from './firebase.js';
 import { produtosPadrao }       from './produtos.js';
 import { VERSION }              from './version.js';
 import appStore                 from './store.js';
@@ -118,23 +117,7 @@ async function _initFirebaseApp() {
     ]);
     if (!sdkOk) return false; // sem SDK → modo offline
 
-    // 1. Verificar sessão existente via onAuthStateChanged.
-    //    Este caminho cobre DOIS cenários:
-    //    a) Sessão já persistida de login anterior (token no IndexedDB)
-    //    b) Retorno de signInWithRedirect (iOS/PWA): o Firebase SDK armazena
-    //       o resultado do redirect no IndexedDB antes de disparar onAuthStateChanged.
-    //       Não usamos getRedirectResult() — ele depende de um iframe cross-origin
-    //       para firebaseapp.com que é bloqueado pelo ITP do Safari e pelo
-    //       bloqueio de third-party cookies do Chrome/Firefox.
-    // Capturar resultado de signInWithRedirect (iOS/PWA) ANTES de fbGetCurrentUser.
-    // Garante que _uid/_user/_ready sejam populados antes do onAuthStateChanged
-    // resolver — evita o loop de volta à tela de login após o redirect Google.
-    try {
-        await fbGetRedirectResult();
-    } catch (e) {
-        console.warn('[main] fbGetRedirectResult ignorado:', e.code || e.message);
-    }
-
+    // 1. Verificar sessão existente (login anterior persistido no IndexedDB).
     const user = await fbGetCurrentUser();
     if (user) {
         _atualizarHeaderUser(user);
@@ -154,11 +137,6 @@ async function _initFirebaseApp() {
                 btn.querySelector('span').textContent = 'Aguarde…';
                 try {
                     const u = await fbSignInGoogle();
-                    // u === null → PWA standalone disparou redirect → página vai recarregar
-                    if (!u) {
-                        btn.querySelector('span').textContent = 'Redirecionando…';
-                        return;
-                    }
                     _ocultarLoginApp();
                     _atualizarHeaderUser(u);
                     await fbPullPrincipal();
